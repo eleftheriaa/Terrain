@@ -21,8 +21,8 @@ def generate_contour_image():
     X, Y, Z = generate_contour_function()
     plt.figure(figsize=(10, 10))
     lv = np.linspace(Z.min(), Z.max(), 10)
-    plt.contourf(X, Y, Z, levels=lv, cmap='coolwarm') # color the contents
-    plt.contour(X, Y, Z, levels=lv, colors=['#000','#000']) # color the lines
+    plt.contourf(X, Y, Z, levels=lv, cmap='coolwarm')  # fills the areas between contour lines
+    plt.contour(X, Y, Z, levels=lv, colors=['#000','#000']) # draws the contour lines black
     
     plt.axis('off')
 
@@ -32,22 +32,3 @@ def generate_contour_image():
     plt.draw()
     plt.close()
     return filename
-
-# image = cv2.imread(filename)
-# gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-# contours, _ = cv2.findContours(gray, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-# print(f"Found {len(contours)} closed curves")
-
-# cv2.drawContours(image, contours, -1, (0,0,255), 2)  # Red contours, 2px thick
-# cv2.imshow('Contours', image)
-# cv2.waitKey(0)  # Press any key to close
-
-# # Colored Plot
-# plt.figure(figsize=(6, 6))
-# lv = np.linspace(np.min(Z), np.max(Z), 10)
-
-# plt.contourf(X, Y, Z, levels=lv,cmap='Reds')
-# plt.contour(X, Y, Z,levels=lv,colors=['#000','#000'])
-
-# plt.show()
