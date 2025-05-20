@@ -7,19 +7,25 @@ from contour_map_function import generate_contour_function, generate_contour_ima
 import matplotlib.pyplot as plt
 from skimage.morphology import skeletonize
 
-WIDTH = 739
-HEIGHT = 744
+WIDTH = 750
+HEIGHT = 740
 COLORS = [Color.RED, Color.GREEN, Color.BLUE, Color.YELLOW, Color.ORANGE, Color.MAGENTA, Color.YELLOWGREEN, Color.CYAN]
 class Terrain(Scene2D):
     def __init__(self):
         super().__init__(WIDTH, HEIGHT, "Terrain")
+        # self.run_task_1 =False
+        # self.run_task_1_polygon = False
+
+        # if self.run_task_1:
         self.task1()  # Initialize the scene
 
     def task1(self):
         self.filename = generate_contour_image()
 
         # Load image in grayscale
+        self.img = cv2.imread("contour_maps/blurred2.png")
         self.img = cv2.imread(self.filename)
+
 
 
         # ***************** DETECT CONTOURS **********************
@@ -34,8 +40,7 @@ class Terrain(Scene2D):
         self.half_contours = self.contours[::2]
         # names = []
         self.count = 0
-        
-
+        self.count_points = 0
         # *************** DRAW IMAGE *********************
         # Image shape for normalization
         w,h = self.img.shape[1], self.img.shape[0]
@@ -56,8 +61,8 @@ class Terrain(Scene2D):
         # *************** DRAW CONTOURS *****************
         for contour in self.half_contours:
             self.pointset = PointSet2D(size=0.5)
+            self.sparse_pointset= PointSet2D(size=1)
             self.lineset = LineSet2D(width = 0.5)
-            self.polygon = Polygon2D()
             nx_minus1, ny_minus1 = None, None
             for pt in contour:
                 x_pixel, y_pixel = pt[0]
@@ -66,21 +71,30 @@ class Terrain(Scene2D):
                 ny = 2 * (y_pixel / h) - 1
                 pn = Point2D([nx,ny])
                 self.pointset.add(pn)
-                if nx_minus1 is not None and ny_minus1 is not None:
-                    pn_minus1 = Point2D([nx_minus1,ny_minus1])
-                    self.lineset.add(Line2D(pn,pn_minus1,color=Color.GREEN) )
-                nx_minus1, ny_minus1 = nx, ny
+                if nx_minus1 is not None and ny_minus1 is not None: 
+                # if self.count_points%40 !=0:
+                    pn_minus1 = Point2D([nx_minus1,ny_minus1],color=Color.RED)
+                    self.lineset.add(Line2D(pn,pn_minus1,color=Color.BLACK))
 
+                    if self.count_points%5 ==0:
+                        self.sparse_pointset.add(pn_minus1)
+                nx_minus1, ny_minus1 = nx, ny
+                self.count_points +=1 
+            print(f"number of points in {self.count}th contour:",len(self.sparse_pointset.points))
             self.name = f"contour_{self.count}"
-            # self.addShape(self.pointset, self.name)
+            self.addShape(self.lineset)
+            self.addShape(self.sparse_pointset, self.name)
+            
+            self.polygon = Polygon2D(self.sparse_pointset, width =0.5,reorderIfNecessary = False,color=Color.RED)
+            self.addShape(self.polygon) 
             # names.append(self.name)
 
-            self.addShape(self.lineset)
             
             self.count += 1
 
         # self.names = names  # store for later if needed
 
+    
 
 if __name__ == "__main__":
     app = Terrain()
