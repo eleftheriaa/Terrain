@@ -2,10 +2,11 @@ import cv2
 import numpy as np
 from vvrpywork.constants import Key, Mouse, Color
 from vvrpywork.scene import Scene2D
-from vvrpywork.shapes import Point2D, PointSet2D, LineSet2D,Polygon2D, Line2D
+from vvrpywork.shapes import Point2D, PointSet2D, LineSet2D,Polygon2D, Line2D, Triangle2D
 from contour_map_function import generate_contour_function, generate_contour_image
 import matplotlib.pyplot as plt
 from skimage.morphology import skeletonize
+from scipy.spatial import Delaunay
 
 WIDTH = 750
 HEIGHT = 740
@@ -13,37 +14,49 @@ COLORS = [Color.RED, Color.GREEN, Color.BLUE, Color.YELLOW, Color.ORANGE, Color.
 class Terrain(Scene2D):
     def __init__(self):
         super().__init__(WIDTH, HEIGHT, "Terrain")
-        # self.run_task_1 =False
-        # self.run_task_1_polygon = False
+        self.triangles:dict[str, Triangle2D] = {}
+        self.sparse_pointlist = []
+        self.reset()
 
-        # if self.run_task_1:
-        self.task1()  # Initialize the scene
+    def reset(self):
+        self.run_task_1 =False
+        self.run_task_1_polygon = False
+
+    def on_key_press(self, symbol, modifiers):
+        if symbol == Key._1:
+            self.task1()
+
+            if symbol == Key._2:
+                self.task2()
+                
+
 
     def task1(self):
-        self.filename = generate_contour_image()
+        filename = generate_contour_image()
 
         # Load image in grayscale
-        self.img = cv2.imread("contour_maps/blurred2.png")
-        self.img = cv2.imread(self.filename)
+        img = cv2.imread("contour_maps/blurred2.png")
+        # self.img = cv2.imread(self.filename)
 
 
 
         # ***************** DETECT CONTOURS **********************
-        self.lower_black = np.array([0, 0, 0])
-        self.upper_black = np.array([50, 50, 50])
-        self.mask = cv2.inRange(self.img, self.lower_black, self.upper_black)
+        lower_black = np.array([0, 0, 0])
+        upper_black = np.array([50, 50, 50])
+        mask = cv2.inRange(img, lower_black, upper_black)
         # Convert to boolean and skeletonize
-        self.skeleton = skeletonize(self.mask > 0)
-        self.skeleton_uint8 = (self.skeleton * 255).astype(np.uint8)
+        skeleton = skeletonize(mask > 0)
+        skeleton_uint8 = (skeleton * 255).astype(np.uint8)
         # Find contours
-        self.contours, _ = cv2.findContours(self.skeleton_uint8, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-        self.half_contours = self.contours[::2]
+        # cv2.CHAIN_APPROX_SIMPLE: stores essential points (like corners)
+        contours, _ = cv2.findContours(skeleton_uint8, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE) 
+        half_contours = contours[::2]
         # names = []
-        self.count = 0
-        self.count_points = 0
+        count = 0
+        count_points = 0
         # *************** DRAW IMAGE *********************
         # Image shape for normalization
-        w,h = self.img.shape[1], self.img.shape[0]
+        w,h =img.shape[1], img.shape[0]
         # points_with_colors = PointSet2D()
         # for x in range(w):
         #     for y in range(h):
@@ -59,10 +72,11 @@ class Terrain(Scene2D):
         # self.addShape(points_with_colors)
 
         # *************** DRAW CONTOURS *****************
-        for contour in self.half_contours:
-            self.pointset = PointSet2D(size=0.5)
-            self.sparse_pointset= PointSet2D(size=1)
-            self.lineset = LineSet2D(width = 0.5)
+        
+        for contour in half_contours:
+            pointset = PointSet2D(size=0.5)
+            sparse_pointset= PointSet2D(size=1)
+            lineset = LineSet2D(width = 0.5)
             nx_minus1, ny_minus1 = None, None
             for pt in contour:
                 x_pixel, y_pixel = pt[0]
@@ -70,31 +84,43 @@ class Terrain(Scene2D):
                 nx = 2 * (x_pixel / w) - 1
                 ny = 2 * (y_pixel / h) - 1
                 pn = Point2D([nx,ny])
-                self.pointset.add(pn)
+                pointset.add(pn)
                 if nx_minus1 is not None and ny_minus1 is not None: 
-                # if self.count_points%40 !=0:
                     pn_minus1 = Point2D([nx_minus1,ny_minus1],color=Color.RED)
-                    self.lineset.add(Line2D(pn,pn_minus1,color=Color.BLACK))
+                    lineset.add(Line2D(pn,pn_minus1,color=Color.BLACK))
 
-                    if self.count_points%5 ==0:
-                        self.sparse_pointset.add(pn_minus1)
+                    if count_points% 10 ==0:
+                        sparse_pointset.add(pn_minus1)
                 nx_minus1, ny_minus1 = nx, ny
-                self.count_points +=1 
-            print(f"number of points in {self.count}th contour:",len(self.sparse_pointset.points))
-            self.name = f"contour_{self.count}"
-            self.addShape(self.lineset)
-            self.addShape(self.sparse_pointset, self.name)
-            
-            self.polygon = Polygon2D(self.sparse_pointset, width =0.5,reorderIfNecessary = False,color=Color.RED)
-            self.addShape(self.polygon) 
+                count_points +=1 
+
+            self.sparse_pointlist.append(pointset)
+            print(f"number of points in {count}th contour:",len(sparse_pointset.points))
+            name = f"contour_{count}"
+            self.addShape(lineset)
+            self.addShape(sparse_pointset, name)
+            # self.polygon = Polygon2D(self.sparse_pointset, width =0.5,reorderIfNecessary = False,color=Color.RED)
+            # self.addShape(self.polygon) 
             # names.append(self.name)
 
             
-            self.count += 1
-
+            count += 1
+        return self.sparse_pointlist
         # self.names = names  # store for later if needed
 
-    
+    def task2(self):
+        lineset = LineSet2D(width = 0.5)
+
+        self.curve_points = self.task1()
+        A = self.curve_points[0]
+        B = self.curve_points[1]
+        pointsAB = np.concatenate([A.points,B.points])
+        for i, p in enumerate(pointsAB):
+            lineset.add(Line2D())
+
+
+        self.addShape(self.triangles)
+
 
 if __name__ == "__main__":
     app = Terrain()
