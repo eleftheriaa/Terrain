@@ -65,7 +65,7 @@ class Terrain(Scene2D):
     def task1(self):
         filename = generate_contour_image()
 
-        # img = cv2.imread("contour_maps/blurred2.png")
+        img = cv2.imread("contour_maps/blurred2.png")
         # img = cv2.imread("contour_maps/paint3.png")
 
         # img = cv2.imread("contour_maps/image5.png")
