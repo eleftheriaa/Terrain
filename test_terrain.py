@@ -17,17 +17,17 @@ class Terrain(Scene2D):
         super().__init__(WIDTH, HEIGHT, "Terrain")
         self.triangles:dict[str, Triangle2D] = {}
         self.sparse_pointlist = []
-        self.reset()
+    #     self.reset()
 
-    def reset(self):
-        self.task2()
+    # def reset(self):
+    #     self.task2()
 
-    # def on_key_press(self, symbol, modifiers):
-    #     if symbol == Key._1:
-    #         self.task1()
+    def on_key_press(self, symbol, modifiers):
+        if symbol == Key._1:
+            self.task1()
 
-    #         if symbol == Key._2:
-    #             self.task2()
+        if symbol == Key._2:
+            self.task2()
    
 
     def resample_contour(self, contour, num_points):
@@ -65,10 +65,10 @@ class Terrain(Scene2D):
     def task1(self):
         filename = generate_contour_image()
 
-        img = cv2.imread("contour_maps/blurred2.png")
+        # img = cv2.imread("contour_maps/pain2t.png")
         # img = cv2.imread("contour_maps/paint3.png")
 
-        # img = cv2.imread("contour_maps/image5.png")
+        img = cv2.imread("contour_maps/blurred2.png")
 
         # img = cv2.imread(filename)
 
@@ -103,7 +103,7 @@ class Terrain(Scene2D):
         pointlist2d = []
         # *************** DRAW CONTOURS *****************
         for i, c in enumerate(half_contours):
-            pointset = PointSet2D(size=0.5)
+            pointset = PointSet2D(size=0.5,color=Color.RED)
             lineset = LineSet2D(width = 0.5)
             nx_minus1, ny_minus1 = None, None
             # *************** RESAMPLE CONTOURS *****************
@@ -114,7 +114,7 @@ class Terrain(Scene2D):
                 # Normalize pixel coords to [-1, 1]
                 nx = 2 * (x_pixel / w) - 1
                 ny = 2 * (y_pixel / h) - 1
-                pn = Point2D([nx,ny])
+                pn = Point2D([nx,ny],color=Color.RED)
                 pointset.add(pn)
                 
                 if nx_minus1 is not None and ny_minus1 is not None: 
@@ -166,9 +166,9 @@ class Terrain(Scene2D):
             a_next = A[(a_idx + 1) % K]
             # Form 3 triangles: (a_curr, a_next, b_curr) and (b_curr, b_next, a_next)
             new_tri1 = Triangle2D(b_curr, b_next, a_curr,width=0.5,color = Color.BLUE)
-            new_tri2 = Triangle2D(a_curr, a_next, b_next,width=0.5,color = Color.GREEN)
+            new_tri2 = Triangle2D(a_curr, a_next, b_next,width=0.5,color = Color.BLUE)
 
-            new_tri3 = Triangle2D(b_next_next, b_next, a_next,width=0.5,color = Color.ORANGE)
+            new_tri3 = Triangle2D(b_next_next, b_next, a_next,width=0.5,color = Color.BLUE)
 
         
             name1 = str(random())
@@ -196,6 +196,11 @@ class Terrain(Scene2D):
         
         for i in range(len(curve_points)-1):
             self.triangulate_between(curve_points[i],curve_points[i+1])
+
+
+
+
+
 
 
 if __name__ == "__main__":
