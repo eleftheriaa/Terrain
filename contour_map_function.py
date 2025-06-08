@@ -20,7 +20,7 @@ def generate_contour_function():
 def generate_contour_image():
     X, Y, Z = generate_contour_function()
     plt.figure(figsize=(10, 10))
-    lv = np.linspace(Z.min(), Z.max(), 6)
+    lv = np.linspace(Z.min(), Z.max(), 10)
     plt.contourf(X, Y, Z, levels=lv, cmap='coolwarm')  # fills the areas between contour lines
     plt.contour(X, Y, Z, levels=lv, colors=['#000','#000']) # draws the contour lines black
     
