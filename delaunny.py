@@ -42,7 +42,7 @@ def isDelaunay(t:Triangle2D, p:Point2D) -> bool:
     '''Checks if `t` is a Delaunay triangle w.r.t `p`.'''
 
     c = t.getCircumCircle()
-    c.radius *= 0.99  # Shrink the circle a bit in order to exclude points of its circumference.
+    c.radius *= 0.97  # Shrink the circle a bit in order to exclude points of its circumference.
     if c.contains(p):
         return False
     return True
