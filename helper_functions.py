@@ -2,12 +2,43 @@ from vvrpywork.constants import Key, Mouse, Color
 from vvrpywork.scene import Scene2D
 from vvrpywork.shapes import (
     Point2D, Line2D, Triangle2D, Circle2D, Rectangle2D,
-    PointSet2D, LineSet2D, Polygon2D
+    PointSet2D, LineSet2D, Polygon2D, PointSet3D, Point3D
 )
 
 from random import random
 
 
+def findAdjacentTriangle3D(pointset: PointSet3D, names:list , p1:Point3D, p2:Point3D, exclude_key: str = None) -> tuple[str,Point2D]:
+    tri_adj_key = ""
+    opp_ver = None
+
+    for i in range(len(pointset)):    
+        for j,p in enumerate(pointset[i]):
+    
+            v1 = p[0]
+            v2 = p[1]
+            v3 = p[2]
+
+            name= names[i][j]
+            if name == exclude_key:
+                continue
+
+    
+            if (p1 == v1 and p2 == v2 ) or (p1 == v2 and p2 == v1 ) : 
+                tri_adj_key=name
+                opp_ver=v3
+                break
+            if (p1 == v1 and p2 == v3 ) or (p1 == v3 and p2 == v1 ) : 
+                tri_adj_key=name
+                opp_ver=v2
+                break
+            if (p1 == v3 and p2 == v2 ) or (p1 == v2 and p2 == v3 ) : 
+                tri_adj_key=name
+                opp_ver=v1
+                break
+            
+        
+    return tri_adj_key, opp_ver
 
 def findAdjacentTriangle(tris:dict[str,Triangle2D], p1:Point2D, p2:Point2D) -> tuple[str,Point2D]:
     tri_adj_key = ""
