@@ -7,8 +7,8 @@ from contour_map_function import generate_contour_function, generate_contour_ima
 import matplotlib.pyplot as plt
 from skimage.morphology import skeletonize
 from random import random
-from helper_functions import findViolations, if_not_delaunny,findAdjacentTriangle,findAdjacentTriangle3D
-from delaunay import delaunay_bowyer_watson, circumcircle_contains
+from helper_functions import findViolations, if_not_delaunny
+from delaunay import delaunay_bowyer_watson
 import math
 N =15
 WIDTH = 950
@@ -16,10 +16,10 @@ HEIGHT = 950
 COLORS = [Color.RED, Color.MAGENTA,   Color.ORANGE, Color.YELLOW, Color.YELLOWGREEN ,Color.GREEN,Color.DARKGREEN, Color.BLUE, Color.BLACK, Color.CYAN,Color.GRAY , Color.WHITE]
 H_STEP = 0.1
 S = Scene3D
-class Terrain(Scene3D):
+class Terrain():
     
     def __init__(self):
-        super().__init__(WIDTH, HEIGHT, "Terrain")
+        # super().__init__(WIDTH, HEIGHT, "Terrain")
         # self.set_slider_value(0, H_STEP)
         self.lineset = LineSet2D(width=0.5,color=Color.RED)
         self.pointset = PointSet2D(size=0.5,color=Color.RED)
@@ -35,40 +35,38 @@ class Terrain(Scene3D):
         self.new_triangles:dict[str, Triangle2D] = {}
         self.filled_tris:dict[str, Triangle2D] = {} 
 
-        # self.delaunay()
-    def on_key_press(self, symbol, modifiers):
-        if symbol == Key._1:
-            self.plot_task1()
+   
+    # def on_key_press(self, symbol, modifiers):
+    #     if symbol == Key._1:
+    #         self.plot_task1()
 
-        if symbol == Key._2:
-            self.plot_triangles()
-         
-        if symbol == Key._3:
-            self.task2b()
-        if symbol == Key._4:
-            self.dual_graph()       
-
-        if symbol == Key.D:
-            self.check_delaunay_status()
+    #     if symbol == Key._2:
+    #         self.plot_triangles()
         
-        if symbol == Key.R :
-            self.violations = 0
+    #     if symbol == Key._3:
+    #         self.task2b()
+        
+    #     if symbol == Key.D:
+    #         self.check_delaunay_status()
+        
+    #     if symbol == Key.R :
+    #         self.violations = 0
 
-            for k in self.names:
-                self.removeShape(k)
-            self.names = []
-            for key in self.triangles.keys():
-                self.removeShape(key)
-            self.triangles = {}
-            for key,value in self.filled_tris.items():
-                value.filled=False
-                self.removeShape(key)
-            for key, value in self.per_contour_triangles.items():
-                self.removeShape(key)
-            self.filled_tris = {}
+    #         for k in self.names:
+    #             self.removeShape(k)
+    #         self.names = []
+    #         for key in self.triangles.keys():
+    #             self.removeShape(key)
+    #         self.triangles = {}
+    #         for key,value in self.filled_tris.items():
+    #             value.filled=False
+    #             self.removeShape(key)
+    #         for key, value in self.per_contour_triangles.items():
+    #             self.removeShape(key)
+    #         self.filled_tris = {}
 
-        # if symbol == Key._4:
-        #     self.task2b()
+    #     if symbol == Key._4:
+    #         self.task2b()
 
     def resample_contour(self, contour, num_points):
         """Uniformly resample contour to have exactly `num_points` points."""
@@ -107,8 +105,8 @@ class Terrain(Scene3D):
         # img = cv2.imread("contour_maps/pain2t.png")
         # img = cv2.imread("contour_maps/paint3.png")
         # img = cv2.imread("contour_maps/blurred2.png")
-        # img = cv2.imread("contour_maps/bandw.png")
-        img = cv2.imread("contour_maps/to_draw.png")
+        img = cv2.imread("contour_maps/bandw.png")
+        # img = cv2.imread("contour_maps/to_draw.png")
         # img = cv2.imread(filename)
 
         # ***************** DETECT CONTOURS **********************
@@ -162,8 +160,6 @@ class Terrain(Scene3D):
         # self.pointlist2d =pointlist2d
         return pointlist2d
     
-
-
     def closest_point_in_contour(self, point, A):
         """
         Given a point with .x, .y and a contour A (list of points with .x, .y),
@@ -220,45 +216,6 @@ class Terrain(Scene3D):
 
         return (self.ccw(p1, p3, p4) != self.ccw(p2, p3, p4)) and (self.ccw(p1, p2, p3) != self.ccw(p1, p2, p4))
     
-    def my_triangulation(self, A, B):
-        inner_tr_dict = {}
-        edges =[]
-        orphan_a_points  = []
-        orphan_b_points  = []
-
-        K = len(A.points)
-        L = len(B.points)
-        for i in range(L):
-            b_curr = B[i]
-            b_next = B[(i + 1) % L]
-            b_next_next = B[(i + 2) % L]
-            if (i%L==0):
-                a_idx = self.closest_point_in_contour(b_curr,A)
-                a_start = a_idx
-            a_curr = A[(a_idx) % K]
-            a_next = A[(a_idx + 1) % K]
-            a_next_next = A[(a_idx + 2) % K]
-
-            # Form 3 triangles: (a_curr, a_next, b_curr) and (b_curr, b_next, a_next)
-            new_tri1 = Triangle2D(b_curr, b_next, a_curr,width=0.5,color = Color.BLUE)
-            new_tri2 = Triangle2D(a_curr, a_next, b_next,width=0.5,color = Color.BLUE)
-
-            new_tri3 = Triangle2D(b_next_next, b_next, a_next,width=0.5,color = Color.BLUE)
-            new_tri4 = Triangle2D( a_next, a_next_next,b_next_next, width=0.5,color = Color.GREEN)
-
-            for tri in [new_tri1, new_tri2, new_tri3, new_tri4]:
-                name = str(random()) 
-                inner_tr_dict[name] = tri
-                self.triangles[name] = tri
-                self.addShape(tri, name)
-
-            
-            a_idx +=2
-        contour_id = f"contour{len(self.per_contour_triangles) + 1}"
-        self.per_contour_triangles[contour_id] = inner_tr_dict
-        # self.all_triangles.append(inner_tr)
-        # self.all_triangles_keys.append(inner_tr_key)
-
     def triangulate_between(self, A, B):
         inner_tr_dict = {}
         edges =[]
@@ -369,13 +326,13 @@ class Terrain(Scene3D):
 
                     # self.addShape(new_tri1)
                     # self.addShape(new_tri2)
-        for key in self.triangles.keys():
-            self.removeShape(key)
-        self.triangles = {}
-        for keys, new_triangle in self.new_triangles.items():
+        # for key in self.triangles.keys():
+        #     self.removeShape(key)
+        # self.triangles = {}
+        # for keys, new_triangle in self.new_triangles.items():
             # print("new triangle ", new_triangle)
-            self.addShape(new_triangle,keys)
-        print("end of loop")
+            # self.addShape(new_triangle,keys)
+        # print("end of loop")
 
 
     def peak(self, inner):
@@ -403,7 +360,7 @@ class Terrain(Scene3D):
             self.triangles[name] = tr
             peak_triangles[name] = tr
 
-        contour_idx = "contour1"
+        contour_idx = f"contour{len(self.per_contour_triangles) + 1}"
         self.per_contour_triangles[contour_idx] = peak_triangles
 
     def plot_task1(self):
@@ -440,32 +397,20 @@ class Terrain(Scene3D):
         self.make_delaunny()
     
     def task2b(self):
-        curve_points = self.task1()
-        # print("size of contours:",len(curve_points))  
-        all_3d_points = []
-        all_3d_point_names = []
-
-        for i in range(len(curve_points)-1):
-            
-            if (i==0):
-                print(i, curve_points[i])
-                self.peak(curve_points[i])
-            self.triangulate_between(curve_points[i],curve_points[i+1])
-
-
-        for contour_index, contour_triangles in enumerate(list(self.per_contour_triangles.values())):     
-            
+       
+        print(list(self.per_contour_triangles.values()))
+        for contour_index, contour_triangles in enumerate(list(self.per_contour_triangles.values())):            
             contour_triangles = contour_triangles.values()
-            # print(f"{contour_index}", contour_triangles)
+            print(f"{contour_index}", contour_triangles)
             z = contour_index * H_STEP
-            contour_3d = []
-            contour_3d_name=[]
+            print(contour_triangles)
 
 
             for i,tri in enumerate(contour_triangles):
                 t3d_name = str(random())
 
-                if (i%2 == 0 or contour_index ==0):
+                print(tri)
+                if (i%2 == 0):
                     h1 = 0
                     h2 = H_STEP
                 else:
@@ -478,67 +423,23 @@ class Terrain(Scene3D):
                 line_color = COLORS[contour_index]  # Clamp to available colors
 
                 t3d = PointSet3D(points = point3d,size = 1, color = Color.BLACK)
-                line1_3d = Line3D((tri.x1, tri.y1, z + h2),(tri.x2, tri.y2, z + h2), resolution=3, width=0.5, color=line_color) 
-                line2_3d = Line3D((tri.x2, tri.y2, z + h2),(tri.x3, tri.y3, z + h1),resolution=3,  width=0.5, color=line_color) 
-                line3_3d = Line3D((tri.x1, tri.y1, z + h2),(tri.x3, tri.y3, z + h1),resolution=3,  width=0.5, color=line_color) 
+                line1_3d = Line3D((tri.x1, tri.y1, z + h2),(tri.x2, tri.y2, z + h2),  width=0.5, color=line_color) 
+                line2_3d = Line3D((tri.x2, tri.y2, z + h2),(tri.x3, tri.y3, z + h1),  width=0.5, color=line_color) 
+                line3_3d = Line3D((tri.x1, tri.y1, z + h2),(tri.x3, tri.y3, z + h1),  width=0.5, color=line_color) 
 
-                contour_3d.append(t3d)
-                contour_3d_name.append(t3d_name)
+                # contour_3d.append(t3d)
                 
                 self.addShape(t3d,t3d_name)
                 self.addShape(line1_3d)
                 self.addShape(line2_3d)
                 self.addShape(line3_3d)
 
-            # self.addShape(triangle3d)
+                # self.addShape(triangle3d)
 
-            all_3d_points.append(contour_3d)
-            all_3d_point_names.append(contour_3d_name)
+            # all_triangles_3d.append(contour_3d)
 
+        # return all_triangles_3d
 
-        return all_3d_points, all_3d_point_names
-
-
-    def dual_graph(self):
-        all_3d_points, all_3d_point_names = self.task2b()
-        print(all_3d_points, all_3d_point_names)
-
-        centroids = {}  # Store centroids by triangle key
-        lines = []      # Store lines between centroids
-        # Step 1: Calculate centroids for all triangles
-        for i in range(len(all_3d_points)):    
-            for j, point3d in enumerate(all_3d_points[i]):
-                print(point3d)
-                # key = str(random())
-                A = point3d[0]
-                B = point3d[1]
-                C = point3d[2]
-
-                centroid_x = (A.x + B.x + C.x) / 3
-                centroid_y = (A.y + B.y + C.y) / 3
-                centroid_z = (A.z + B.z + C.z) / 3
-
-                centroid = Point3D((centroid_x, centroid_y, centroid_z),size =0.4,color=(1, 0, 0))
-                
-                centroids[all_3d_point_names[i][j]] = centroid # dictionary of Point3D ' s
-                self.addShape(centroid)  # Visualize centroid points
-
-        print("endo of loop")
-        for i in range(len(all_3d_points)):    
-            for j, point3d in enumerate(all_3d_points[i]):
-                # key = str(random())
-                A = point3d[0]
-                B = point3d[1]
-                C = point3d[2]
-                
-                for edge in [(A, B), (B, C), (C, A)]:
-                    adj_key, adj_xy = findAdjacentTriangle3D(all_3d_points, all_3d_point_names, edge[0], edge[1], all_3d_point_names[i][j])
-                    if adj_key and (adj_key in centroids):
-                        if ((adj_key),all_3d_point_names[i][j]) not in lines: 
-                            
-                            line = Line3D(centroids[all_3d_point_names[i][j]], centroids[adj_key] ,width = 0.5 , color=Color.BLACK)
-                            lines.append(((adj_key),all_3d_point_names[i][j]))
-                            self.addShape(line) 
 
     def showViolations(self,tri:Triangle2D):
         c = tri.getCircumCircle()
