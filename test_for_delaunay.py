@@ -393,11 +393,27 @@ class Terrain(Scene2D):
         
     def del_correction(self):
         self.new_points+=self.all_points
-        print(self.pointlist2d)
+        # print(self.pointlist2d)
         print("---- * ----")
         print(self.new_points_clustered)
-        self.pointlist2d = self.new_points_clustered
-        self.plot_delaunay2()
+        # self.pointlist2d = self.new_points_clustered
+        # self.plot_delaunay2()
+        new_del_tris = delaunay_bowyer_watson(self.new_points)
+        outer_contour = []
+        for outer_points in self.new_points_clustered[-1].points:
+            outer_contour.append(tuple(outer_points))
+            # print(outer_contour)
+
+        for i, (p1, p2, p3) in enumerate(new_del_tris):
+            p1t = Point2D((p1.x, p1.y))
+            p2t = Point2D((p2.x, p2.y))
+            p3t = Point2D((p3.x, p3.y))
+
+            cx = (p1t.x + p2t.x + p3t.x) / 3
+            cy = (p1t.y + p2t.y + p3t.y) / 3
+            if not self.point_in_polygon((cx, cy), outer_contour):
+                continue 
+            self.addShape(Triangle2D(p1t,p2t,p3t, width = 0.5), f"redelauany{i}")
 
 
 
