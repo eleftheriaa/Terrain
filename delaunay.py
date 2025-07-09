@@ -1,5 +1,9 @@
 import math
 import numpy as np
+MIN_ANGLE = 5 # degrees
+MAX_AREA = 1  # adjust as needed
+WORST_TRI = None
+WORST_SCORE = -1
 
 class Edge:
     def __init__(self, p1, p2):
@@ -43,6 +47,30 @@ def circumcircle_contains(tri, point):
 
 
 
+def triangle_area( p1, p2, p3):
+    # Shoelace formula
+    return abs(0.5 * (p1.x*(p2.y-p3.y) +
+                    p2.x*(p3.y-p1.y) +
+                    p3.x*(p1.y-p2.y)))
+
+def triangle_angles( p1, p2, p3):
+    def angle(a, b, c):  # angle at point b
+        ab = (a.x - b.x, a.y - b.y)
+        cb = (c.x  - b.x , c.y - b.y)
+        dot = ab[0]*cb[0] + ab[1]*cb[1]
+        norm_ab = math.hypot(*ab)
+        norm_cb = math.hypot(*cb)
+        if norm_ab == 0 or norm_cb == 0:
+            return 0.0 
+        cos_theta = dot / (norm_ab * norm_cb)
+        cos_theta = min(1.0, max(-1.0, cos_theta))  # Clamp due to numerical errors
+        return math.degrees(math.acos(cos_theta))
+
+    A = angle(p2, p1, p3)
+    B = angle(p1, p2, p3)
+    C = 180.0 - A - B
+    return A, B, C
+
 def super_triangle(points):
     """Creates a super triangle that contains all points."""
 
@@ -63,7 +91,20 @@ def super_triangle(points):
 
     return np.array([p1, p2, p3])
 
+def circumcenter(p1, p2, p3):
 
+    A = np.array([[p2.x - p1.x, p2.y - p1.y],
+                  [p3.x - p1.x, p3.y - p1.y]])
+    B = np.array([((p2.x**2 - p1.x**2) + (p2.y**2 - p1.y**2)) / 2,
+                  ((p3.x**2 - p1.x**2) + (p3.y**2 - p1.y**2)) / 2])
+    try:
+        sol = np.linalg.solve(A.T, B)
+        return Point(sol[0], sol[1])
+    except np.linalg.LinAlgError:
+        return Point((p1.x + p2.x + p3.x) / 3, (p1.y + p2.y + p3.y) / 3)
+
+def barycenter (p1, p2, p3):
+    return Point((p1.x + p2.x + p3.x) / 3, (p1.y + p2.y + p3.y) / 3)
 
 
 def delaunay_bowyer_watson(points):
@@ -74,11 +115,11 @@ def delaunay_bowyer_watson(points):
     triangles = [tuple(np.array(p) for p in st)]# List of triangle point-triplets
 
     triangulation = [tuple(st)]
-
     for point in points:
         bad_triangles = []
         for tri in triangulation:
             # print(tri)
+           
             if circumcircle_contains(tri, point):
                 bad_triangles.append(tri)
         # print(bad_triangles)
@@ -86,6 +127,7 @@ def delaunay_bowyer_watson(points):
         # Find the boundary of the polygonal hole
         edges = set()
         for tri in bad_triangles:
+            
             for i in range(3):
                 e = Edge(tri[i], tri[(i + 1) % 3])
                 if e in edges:
@@ -100,6 +142,7 @@ def delaunay_bowyer_watson(points):
         # Re-triangulate the hole
         for edge in edges:
             new_tri = (edge.p1, edge.p2, point)
+            
             triangulation.append(new_tri)
 
     # Remove triangles connected to super triangle points
@@ -110,3 +153,33 @@ def delaunay_bowyer_watson(points):
         final_tris.append(tri)
 
     return final_tris
+
+# def quality_delaunay(points):
+#     WORST_TRI = None
+#     WORST_SCORE = -1
+#     points = [Point(p[0], p[1]) for p in points]
+#     while True:
+#         triangulation = delaunay_bowyer_watson([(p.x, p.y) for p in points])
+#         new_points = []
+#         improved = False
+
+#         for tri in triangulation:
+#             angles = triangle_angles(*tri)
+#             area = triangle_area(*tri)
+
+#             if min(angles) < MIN_ANGLE or area > MAX_AREA:
+#                 score = min(MIN_ANGLE - min(angles), area / MAX_AREA)
+#                 if score > WORST_SCORE:
+#                     WORST_SCORE = score
+#                     WORST_TRI = tri
+
+#         if WORST_TRI:
+#             circumc = circumcenter(*WORST_TRI)
+#             new_points.append(circumc)
+#             improved = True
+#         if not improved:
+#             break
+
+#         points += new_points
+
+#     return delaunay_bowyer_watson([(p.x, p.y) for p in points])

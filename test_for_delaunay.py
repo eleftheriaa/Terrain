@@ -2,21 +2,21 @@ import cv2
 import numpy as np
 from vvrpywork.constants import Key, Mouse, Color
 from vvrpywork.scene import Scene2D, Scene3D
-from vvrpywork.shapes import Point2D, PointSet2D, LineSet2D,Polygon2D, Line2D, Triangle2D,Point3D, PointSet3D,LineSet3D,Line3D
+from vvrpywork.shapes import Point2D, PointSet2D, LineSet2D,Polygon2D, Line2D, Triangle2D,Point3D, PointSet3D,LineSet3D,Line3D, Label2D
 from contour_map_function import generate_contour_function, generate_contour_image
 import matplotlib.pyplot as plt
 from skimage.morphology import skeletonize
 from random import random
 from helper_functions import findViolations, if_not_delaunny,findAdjacentTriangle,findAdjacentTriangle3D
-from delaunay import delaunay_bowyer_watson, circumcircle_contains
+from delaunay import delaunay_bowyer_watson, circumcircle_contains,triangle_angles, circumcenter,barycenter ,triangle_area, Point
 import math
 N =15
 WIDTH = 950
 HEIGHT = 950
 COLORS = [Color.RED, Color.MAGENTA,  Color.ORANGE, Color.YELLOW, Color.GREEN, Color.DARKGREEN, Color.BLUE, Color.BLACK, Color.CYAN,Color.GRAY , Color.WHITE]
 H_STEP = 0.1
-MIN_ANGLE = 20 # degrees
-MAX_AREA = 100  # adjust as needed
+MIN_ANGLE = 11 # degrees
+MAX_AREA = 0.08  # adjust as needed
 class Terrain(Scene2D):
     
     def __init__(self):
@@ -29,13 +29,15 @@ class Terrain(Scene2D):
         self.per_contour_triangles = {}
         self.names = []
         self.half_contours = []
-       
+        self.all_points =[]
         self.violations = 0
 
         self.pointlist2d = []
         self.new_triangles:dict[str, Triangle2D] = {}
         self.filled_tris:dict[str, Triangle2D] = {} 
-
+        self.do_not_meet_criteria =[]
+        self.new_points = []
+        self.new_points_clustered =[]
         # self.delaunay()
     def on_key_press(self, symbol, modifiers):
         if symbol == Key._1:
@@ -44,7 +46,10 @@ class Terrain(Scene2D):
         if symbol == Key._2:
             # self.plot_triangles()
             # self.delaunay()
-            self.plot_delaunay()
+            self.pointlist2d = self.task1()  # list of contours with .points
+            self.plot_delaunay2()
+        if symbol == Key.C:
+            self.del_correction()
         if symbol == Key._3:
             self.lift_mesh()
         if symbol == Key._4:
@@ -65,9 +70,16 @@ class Terrain(Scene2D):
             for key,value in self.filled_tris.items():
                 value.filled=False
                 self.removeShape(key)
-            for key, value in self.per_contour_triangles.items():
-                self.removeShape(key)
+            for  contour in (self.per_contour_triangles):
+                for name in self.per_contour_triangles[contour].keys():
+                    self.removeShape(name)
             self.filled_tris = {}
+            for i in range(len(self.do_not_meet_criteria)):
+                self.removeShape(f"bad_tr{i}")
+                self.removeShape(f"p1{i}")
+                self.removeShape(f"p2{i}")
+                self.removeShape(f"p3{i}")
+                self.removeShape("label")
 
         # if symbol == Key._4:
         #     self.task2b()
@@ -110,8 +122,12 @@ class Terrain(Scene2D):
         # img = cv2.imread("contour_maps/paint3.png")
         # img = cv2.imread("contour_maps/blurred2.png")
         # img = cv2.imread("contour_maps/bandw.png")
-        img = cv2.imread("contour_maps/to_draw.png")
-        # img = cv2.imread("contour_maps/four_contour.png")
+        # img = cv2.imread("contour_maps/to_draw.png")
+        img = cv2.imread("contour_maps/four_contour.png")
+        # img = cv2.imread("contour_maps/five_contours.png")
+        # img = cv2.imread("contour_maps/two_slopes.png")
+
+
 
         # img = cv2.imread(filename)
 
@@ -181,42 +197,19 @@ class Terrain(Scene2D):
             j = i
         return inside
     
-
-    def triangle_area(self, p1, p2, p3):
-        # Shoelace formula
-        return abs(0.5 * (p1[0]*(p2[1]-p3[1]) +
-                        p2[0]*(p3[1]-p1[1]) +
-                        p3[0]*(p1[1]-p2[1])))
-    
-    def triangle_angles(self, p1, p2, p3):
-        def angle(a, b, c):  # angle at point b
-            ab = (a[0] - b[0], a[1] - b[1])
-            cb = (c[0] - b[0], c[1] - b[1])
-            dot = ab[0]*cb[0] + ab[1]*cb[1]
-            norm_ab = math.hypot(*ab)
-            norm_cb = math.hypot(*cb)
-            cos_theta = dot / (norm_ab * norm_cb)
-            cos_theta = min(1.0, max(-1.0, cos_theta))  # Clamp due to numerical errors
-            return math.degrees(math.acos(cos_theta))
-
-        A = angle(p2, p1, p3)
-        B = angle(p1, p2, p3)
-        C = 180.0 - A - B
-        return A, B, C
     
 
     def delaunay(self):
-        pointlist2d = self.task1()  # list of contours with .points
         all_points = []             # all 2D points (for triangulation)
         point_to_contour = {}       # maps point tuple -> contour index
         contour_ids = []
         outer_contour = []
-        for outer_points in pointlist2d[-1].points:
+        for outer_points in self.pointlist2d[-1].points:
             outer_contour.append(tuple(outer_points))
             # print(outer_contour)
 
         # Step 1: Collect all points and remember ownership
-        for contour_idx, contour in enumerate(pointlist2d):
+        for contour_idx, contour in enumerate(self.pointlist2d):
             contour_id = f"contour{contour_idx + 1}"
             contour_ids.append(contour_id)
 
@@ -226,10 +219,12 @@ class Terrain(Scene2D):
                 point_to_contour[pt_tuple] = contour_id
 
         print(f"Total input points: {len(all_points)}")
-
+        self.all_points = all_points
         # Step 2: Run Delaunay on all points
+        # delaunay_tris = delaunay_bowyer_watson(all_points)  # each tri: [(x1,y1), (x2,y2), (x3,y3)]
         delaunay_tris = delaunay_bowyer_watson(all_points)  # each tri: [(x1,y1), (x2,y2), (x3,y3)]
 
+        
         # Step 3: Prepare output dict
         self.per_contour_triangles = {cid: {} for cid in contour_ids}
 
@@ -247,18 +242,6 @@ class Terrain(Scene2D):
             if not self.point_in_polygon((cx, cy), outer_contour):
                 continue  # Skip triangle outside outer contour
             else:
-                                # Before adding triangle
-                
-
-                A, B, C = self.triangle_angles(p1t, p2t, p3t)
-                area = self.triangle_area(p1t, p2t, p3t)
-                print(area)
-
-                if min(A, B, C) < MIN_ANGLE:
-                    continue  # Reject triangle with bad angle
-
-                if area > MAX_AREA:
-                    continue  # Reject large triangle
 
                 contour_set = {point_to_contour.get(p, "unknown") for p in [p1t, p2t, p3t]}
 
@@ -309,8 +292,68 @@ class Terrain(Scene2D):
 
         contour_idx = "contour1"
         self.per_contour_triangles[contour_idx] = peak_triangles
+    def plot_delaunay2(self):
+        self.delaunay()
+        self.peak(self.pointlist2d[0])
+
+        self.new_points = []  # Flat list of (x, y)
+        self.new_points_clustered = []  # List of PointSet2D
+        self.do_not_meet_criteria = []
+        self.do_not_meet_criteria_with_contour = dict()
+
+        for contour_idx, contour in enumerate(self.per_contour_triangles):
+            for name, tri in self.per_contour_triangles[contour].items():
+                self.addShape(tri, name)
+
+                p1 = tri.getPoint1()
+                p2 = tri.getPoint2()
+                p3 = tri.getPoint3()
+
+                tuple_tri = (Point(p1.x, p1.y), Point(p2.x, p2.y), Point(p3.x, p3.y))
+                angles = triangle_angles(*tuple_tri)
+                area = triangle_area(*tuple_tri)
+
+                if min(angles) < MIN_ANGLE or area > MAX_AREA:
+                    self.do_not_meet_criteria.append(tuple_tri)
+
+                    # Store triangle under corresponding contour index
+                    if contour_idx not in self.do_not_meet_criteria_with_contour:
+                        self.do_not_meet_criteria_with_contour[contour_idx] = []
+                    self.do_not_meet_criteria_with_contour[contour_idx].append(tuple_tri)
+
+        print("these are the triangles that do not meet the conditions:\n", self.do_not_meet_criteria)
+        self.addShape(Label2D(Point2D((0.5, 1)), text=f" MIN_ANGLE = {MIN_ANGLE} degrees\n MAX_AREA = {MAX_AREA} ", size=12, bold=True), "label")
+
+        # Initialize containers per contour index
+        max_contours = max(self.do_not_meet_criteria_with_contour.keys(), default=-1) + 1
+        self.new_points_clustered = [PointSet2D() for _ in range(max_contours)]
+
+        for contour_idx, bad_tris in self.do_not_meet_criteria_with_contour.items():
+            for i, bad_tri in enumerate(bad_tris):
+                r1, r2, r3 = bad_tri
+                center = barycenter(r1, r2, r3)
+
+                # Add to flat list
+                self.new_points.append((center.x, center.y))
+
+                # Add to corresponding contour cluster
+                self.new_points_clustered[contour_idx].add(Point2D((center.x, center.y)))
+
+                # Optionally draw
+                p1 = Point2D((r1.x, r1.y), color=Color.MAGENTA)
+                p2 = Point2D((r2.x, r2.y), color=Color.MAGENTA)
+                p3 = Point2D((r3.x, r3.y), color=Color.MAGENTA)
+                bt = Triangle2D(p1, p2, p3, filled=True, color=Color.MAGENTA)
+
+                self.addShape(bt, f"bad_tr{contour_idx}_{i}")
+                self.addShape(p1, f"p1{contour_idx}_{i}")
+                self.addShape(p2, f"p2{contour_idx}_{i}")
+                self.addShape(p3, f"p3{contour_idx}_{i}")
+
+        print("End of loop")
 
     def plot_delaunay(self):
+        
 
         self.delaunay()
         self.peak(self.pointlist2d[0])
@@ -318,7 +361,47 @@ class Terrain(Scene2D):
             for name,tri in self.per_contour_triangles[contour].items():
                 self.addShape(tri, name)
 
-  
+                p1 = tri.getPoint1()
+                p2 = tri.getPoint2()
+                p3 = tri.getPoint3()
+
+                tuple_tri = (Point(p1.x,p1.y),Point(p2.x,p2.y),Point(p3.x,p3.y))
+                angles = triangle_angles(*tuple_tri)
+                area = triangle_area(*tuple_tri)
+
+                if min(angles) < MIN_ANGLE or area > MAX_AREA:
+                    self.do_not_meet_criteria.append(tuple_tri)
+        
+        print("these are the triangles that do not mett the conditions:\n",self.do_not_meet_criteria)
+        self.addShape(Label2D(Point2D((0.5,1)),text=f" MIN_ANGLE = {MIN_ANGLE} degrees\n MAX_AREA = {MAX_AREA} ", size = 12, bold= True),"label" )
+        for i,bad_tri in enumerate(self.do_not_meet_criteria):
+            print(bad_tri)
+
+            r1,r2,r3 = bad_tri
+            centrer = barycenter(r1,r2,r3)
+            self.new_points.append((centrer.x,centrer.y))
+            p1 = Point2D((r1.x,r1.y), color = Color.MAGENTA)
+            p2 = Point2D((r2.x,r2.y), color = Color.MAGENTA)
+            p3 = Point2D((r3.x,r3.y), color = Color.MAGENTA)
+            bt = Triangle2D(p1,p2,p3, filled=True, color=Color.MAGENTA)
+            self.addShape(bt,f"bad_tr{i}")
+            self.addShape(p1,f"p1{i}")
+            self.addShape(p2,f"p2{i}")
+            self.addShape(p3,f"p3{i}")
+
+        print("endo loop")
+        
+    def del_correction(self):
+        self.new_points+=self.all_points
+        print(self.pointlist2d)
+        print("---- * ----")
+        print(self.new_points_clustered)
+        self.pointlist2d = self.new_points_clustered
+        self.plot_delaunay2()
+
+
+
+
     def plot_task1(self):
         self.pointlist2d = self.task1()
         self.addShape(self.lineset)
