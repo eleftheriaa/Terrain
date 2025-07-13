@@ -16,7 +16,7 @@ HEIGHT = 950
 COLORS = [Color.RED, Color.MAGENTA,   Color.ORANGE, Color.YELLOW, Color.YELLOWGREEN ,Color.GREEN,Color.DARKGREEN, Color.BLUE, Color.BLACK, Color.CYAN,Color.GRAY , Color.WHITE]
 H_STEP = 0.1
 S = Scene3D
-class Terrain(Scene3D):
+class Terrain(Scene2D):
     
     def __init__(self):
         super().__init__(WIDTH, HEIGHT, "Terrain")
@@ -106,9 +106,11 @@ class Terrain(Scene3D):
 
         # img = cv2.imread("contour_maps/pain2t.png")
         # img = cv2.imread("contour_maps/paint3.png")
-        # img = cv2.imread("contour_maps/blurred2.png")
+        img = cv2.imread("contour_maps/blurred2.png")
         # img = cv2.imread("contour_maps/bandw.png")
-        img = cv2.imread("contour_maps/to_draw.png")
+        # img = cv2.imread("contour_maps/to_draw.png")
+        # img = cv2.imread("contour_maps/five_contours.png")
+
         # img = cv2.imread(filename)
 
         # ***************** DETECT CONTOURS **********************
@@ -139,10 +141,11 @@ class Terrain(Scene3D):
             self.pointset = PointSet2D(size=0.5,color=Color.RED)
             nx_minus1, ny_minus1 = None, None
             # *************** RESAMPLE CONTOURS *****************
-            rcontour = self.resample_contour(c, N *(i+1))
+            # rcontour = self.resample_contour(c, N *(i+1))
             # print(f"contour_{i}", rcontour)
+            rcontour  = c[:, 0, :]  # from shape (N, 1, 2) to (N, 2)
             # print(rcontour)
-            for x_pixel, y_pixel in rcontour:
+            for (x_pixel, y_pixel) in rcontour:
                 # Normalize pixel coords to [-1, 1]
                 nx = 2 * (x_pixel / w) - 1
                 ny = 2 * (y_pixel / h) - 1

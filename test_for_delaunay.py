@@ -6,22 +6,27 @@ from vvrpywork.shapes import Point2D, PointSet2D, LineSet2D,Polygon2D, Line2D, T
 from contour_map_function import generate_contour_function, generate_contour_image
 import matplotlib.pyplot as plt
 from skimage.morphology import skeletonize
-from random import random
+import random
 from helper_functions import findViolations, if_not_delaunny,findAdjacentTriangle,findAdjacentTriangle3D
 from delaunay import delaunay_bowyer_watson, circumcircle_contains,triangle_angles, circumcenter,barycenter ,triangle_area, Point
+from path_finding_algorithms import dijkstra
 import math
 N =15
 WIDTH = 950
 HEIGHT = 950
-COLORS = [Color.RED, Color.MAGENTA,  Color.ORANGE, Color.YELLOW, Color.GREEN, Color.DARKGREEN, Color.BLUE, Color.BLACK, Color.CYAN,Color.GRAY , Color.WHITE]
+# Color.MAGENTA,  Color.ORANGE,  Color.DARKGREEN, Color.BLACK, 
+COLORS = [Color.RED, Color.YELLOW, Color.GREEN, Color.BLUE,Color.CYAN, Color.GRAY , Color.WHITE]
 H_STEP = 0.1
 MIN_ANGLE = 11 # degrees
 MAX_AREA = 0.08  # adjust as needed
 class Terrain(Scene2D):
     
     def __init__(self):
-        super().__init__(WIDTH, HEIGHT, "Terrain")
-        # self.set_slider_value(0, H_STEP)
+        
+        super().__init__(WIDTH, HEIGHT, "Terrain", n_sliders=1) # uncomment for Scene3D
+        # super().__init__(WIDTH, HEIGHT, "Terrain") # uncomment for Scene2D
+
+        self.set_slider_value(0, H_STEP) # uncomment for Scene3D
         self.lineset = LineSet2D(width=0.5,color=Color.RED)
         self.pointset = PointSet2D(size=0.5,color=Color.RED)
 
@@ -31,14 +36,37 @@ class Terrain(Scene2D):
         self.half_contours = []
         self.all_points =[]
         self.violations = 0
-
+        self.flag  = 0
         self.pointlist2d = []
         self.new_triangles:dict[str, Triangle2D] = {}
         self.filled_tris:dict[str, Triangle2D] = {} 
         self.do_not_meet_criteria =[]
         self.new_points = []
         self.new_points_clustered =[]
-        # self.delaunay()
+        self.l1_names = []
+        self.l2_names = []
+        self.l3_names = []
+        self.point3d_dict = []
+
+# uncomment for Scene2D
+
+        # self.addShape(Label2D(Point2D((-0.72, 1)), text="Press '1' for contour lines", size=12, bold=True), "label_1")
+        # self.addShape(Label2D(Point2D((-0.62, 0.96)), text="Press '2' for Delaunay triangulation ", size=12, bold=True), "label_2")
+        # self.addShape(Label2D(Point2D((-0.45, 0.92)), text= "Press 'C' for Delaunay correction based on limitations", size=12, bold=True), "label_3")
+
+        # self.addShape(Label2D(Point2D((-0.8, 0.88)), text= "Press 'R' for reset", size=12, bold=True), "label_4")
+# uncomment for Scene3D
+    def on_slider_change(self, slider_id, value):
+        if slider_id == 0:
+            self.point_speed = value * 0.01
+            print("value:", value)
+            self.h_step = value
+            self.flag = 2
+        else: 
+            self.flag =1
+            
+
+    
     def on_key_press(self, symbol, modifiers):
         if symbol == Key._1:
             self.plot_task1()
@@ -50,17 +78,40 @@ class Terrain(Scene2D):
             self.plot_delaunay2()
         if symbol == Key.C:
             self.del_correction()
-        if symbol == Key._3:
-            self.lift_mesh()
-        if symbol == Key._4:
-            self.dual_graph()       
 
-        if symbol == Key.D:
-            self.check_delaunay_status()
+
+
+
+        if symbol == Key._3 and self.flag == 2:
+            for i in range(len(self.point3d_dict)):
+                self.removeShape(self.point3d_dict[i])
+            for i in range(len(self.l1_names)):
+                self.removeShape(self.l1_names[i])
+                self.removeShape(self.l2_names[i])
+                self.removeShape(self.l3_names[i])
+            self.pointlist2d = self.task1()
+
+            self.lift_mesh(self.h_step)
+        if symbol == Key._4 :
+            self.pointlist2d = self.task1()
+            print("type",type(self.h_step))
+            self.triangle_keys = self.dual_graph(self.h_step)     
+
+        if symbol == Key._5:
+            self.start = random.choice(self.triangle_keys)
+            self.goal = random.choice([k for k in self.triangle_keys if k != self.start])
+
+            self.path_finding(self.start, self.goal)   
+
+        if symbol == Key._6:
+            self.path_finding_with_slope_limit(self.start, self.goal)
+
+        # if symbol == Key.D:
+        #     self.check_delaunay_status()
         
         if symbol == Key.R :
             self.violations = 0
-
+            self.removeShape("contour_lineset")
             for k in self.names:
                 self.removeShape(k)
             self.names = []
@@ -204,6 +255,7 @@ class Terrain(Scene2D):
         point_to_contour = {}       # maps point tuple -> contour index
         contour_ids = []
         outer_contour = []
+        # print(self.pointlist2d)
         for outer_points in self.pointlist2d[-1].points:
             outer_contour.append(tuple(outer_points))
             # print(outer_contour)
@@ -286,7 +338,7 @@ class Terrain(Scene2D):
             point_next = inner[(i + 1) % len(inner)]  # wrap around to close the loop
 
             tr = Triangle2D(point_current, point_next, average_point, width=0.5, color=Color.YELLOW)
-            name = str(random())
+            name = str(random.random())
             self.triangles[name] = tr
             peak_triangles[name] = tr
 
@@ -324,8 +376,9 @@ class Terrain(Scene2D):
         print("these are the triangles that do not meet the conditions:\n", self.do_not_meet_criteria)
         self.addShape(Label2D(Point2D((0.5, 1)), text=f" MIN_ANGLE = {MIN_ANGLE} degrees\n MAX_AREA = {MAX_AREA} ", size=12, bold=True), "label")
 
-        # Initialize containers per contour index
+        # # Initialize containers per contour index
         max_contours = max(self.do_not_meet_criteria_with_contour.keys(), default=-1) + 1
+        print(max_contours)
         self.new_points_clustered = [PointSet2D() for _ in range(max_contours)]
 
         for contour_idx, bad_tris in self.do_not_meet_criteria_with_contour.items():
@@ -349,7 +402,7 @@ class Terrain(Scene2D):
                 self.addShape(p1, f"p1{contour_idx}_{i}")
                 self.addShape(p2, f"p2{contour_idx}_{i}")
                 self.addShape(p3, f"p3{contour_idx}_{i}")
-
+        print("clustered",self.new_points_clustered)
         print("End of loop")
 
     def plot_delaunay(self):
@@ -374,6 +427,7 @@ class Terrain(Scene2D):
         
         print("these are the triangles that do not mett the conditions:\n",self.do_not_meet_criteria)
         self.addShape(Label2D(Point2D((0.5,1)),text=f" MIN_ANGLE = {MIN_ANGLE} degrees\n MAX_AREA = {MAX_AREA} ", size = 12, bold= True),"label" )
+
         for i,bad_tri in enumerate(self.do_not_meet_criteria):
             print(bad_tri)
 
@@ -414,59 +468,56 @@ class Terrain(Scene2D):
             if not self.point_in_polygon((cx, cy), outer_contour):
                 continue 
             self.addShape(Triangle2D(p1t,p2t,p3t, width = 0.5), f"redelauany{i}")
-
+            print("correct tri")
 
 
 
     def plot_task1(self):
         self.pointlist2d = self.task1()
-        self.addShape(self.lineset)
+        self.addShape(self.lineset, "contour_lineset")
 
         for i in range(len(self.half_contours)):
             self.addShape(self.pointlist2d[i], self.names[i])
 
     
-    def polygon_area(self, polygon):
-        # Shoelace formula (returns absolute area)
-        area = 0
-        n = len(polygon)
-        for i in range(n):
-            x1, y1 = polygon[i]
-            x2, y2 = polygon[(i + 1) % n]
-            area += (x1 * y2 - x2 * y1)
-        return abs(area) / 2
     
-    def lift_mesh(self):
-        
+    def lift_mesh(self, h_step):
+        self.point3d_dict =[]
         self.delaunay()
         self.peak(self.pointlist2d[0])
         # STEP 1: Build 2D → 3D point mapping
         point2d_to_3d = dict()
         for i, contour in enumerate(self.pointlist2d):  # Skip last if it's a duplicate
-            z = (i + 1) * H_STEP
+            z = (i + 1) * h_step
+            
             if(i!=len(self.pointlist2d)-1):
                 for pt in contour:
+                    key_point = str(random.random())
+                    self.point3d_dict.append(key_point)
                     key = (pt.x, pt.y)
                     point2d_to_3d[key] = (pt.x, pt.y, z)
-                    p3d = Point3D((pt.x, pt.y, z),size = 0.4, color = Color.RED)
-                    self.addShape(p3d, str(random()))
+                    p3d = Point3D((pt.x, pt.y, z),size = 0.4, color = Color.ORANGE)
+                    self.addShape(p3d,key_point)
                     
             else: 
+                key_point = str(random.random())
+                self.point3d_dict.append(key_point)
                 point2d_to_3d[(contour.x, contour.y)] = (contour.x, contour.y, 0)
-                p3d = Point3D((contour.x, contour.y, 0),size = 0.4, color = Color.GREEN)
-                self.addShape(p3d, str(random()))
+                p3d = Point3D((contour.x, contour.y, 0),size = 0.4, color = Color.RED)
+                self.addShape(p3d, key_point)
             
 
         all_3d_contours =[]
         all_3d_point_names =[]
         # STEP 2: Loop through triangulation
         for contour_index, (contour_name, triangles) in enumerate(self.per_contour_triangles.items()):
+            print("contour_index:",contour_index)
             color = COLORS[contour_index]
 
             contour_3d_name =[]
             contour_3d=[]
             for tri_name, tri in triangles.items():
-                key = str(random())
+                key = str(random.random())
                 p1_2d = (tri.x1, tri.y1)
                 p2_2d = (tri.x2, tri.y2)
                 p3_2d = (tri.x3, tri.y3)
@@ -483,26 +534,38 @@ class Terrain(Scene2D):
                 contour_3d.append(t3d)
                 contour_3d_name.append( key)
                 
+                l1_name = str(random.random())
+                l2_name = str(random.random())
+                l3_name = str(random.random())
+
+                self.l1_names.append(l1_name)
+                self.l2_names.append(l2_name)
+                self.l3_names.append(l3_name)
+
+
 
                 # Draw triangle edges in 3D
-                self.addShape(Line3D(p1_3d, p2_3d, resolution=3, width=0.5, color=color))
-                self.addShape(Line3D(p2_3d, p3_3d, resolution=3, width=0.5, color=color))
-                self.addShape(Line3D(p1_3d, p3_3d, resolution=3, width=0.5, color=color))
+                self.addShape(Line3D(p1_3d, p2_3d, resolution=3, width=3, color=color),l1_name)
+                self.addShape(Line3D(p2_3d, p3_3d, resolution=3, width=3, color=color),l2_name)
+                self.addShape(Line3D(p1_3d, p3_3d, resolution=3, width=3, color=color), l3_name)
 
             all_3d_point_names.append(contour_3d_name)
             all_3d_contours.append(contour_3d)
 
         return all_3d_contours, all_3d_point_names
 
-    def dual_graph(self):
-        all_3d_points, all_3d_point_names = self.lift_mesh()
+    def dual_graph(self, h_step):
+        all_3d_points, all_3d_point_names = self.lift_mesh(h_step)
 
-        centroids = {}  # Store centroids by triangle key
-        lines = []      # Store lines between centroids
+        self.dual_centroids = {}   # triangle name -> Point3D
+        self.dual_graph_dict = {}       # triangle name -> list of (neighbor, distance)
+                
+        lines = set()      # Store lines between centroids
         # Step 1: Calculate centroids for all triangles
         for i in range(len(all_3d_points)):    
             for j, point3d in enumerate(all_3d_points[i]):
-                key = str(random())
+                key_raw = all_3d_point_names[i][j]
+                key = str(key_raw)
                 A = point3d[0]
                 B = point3d[1]
                 C = point3d[2]
@@ -511,27 +574,108 @@ class Terrain(Scene2D):
                 centroid_y = (A.y + B.y + C.y) / 3
                 centroid_z = (A.z + B.z + C.z) / 3
 
-                centroid = Point3D((centroid_x, centroid_y, centroid_z),size =0.4,color=(1, 0, 0))
-                centroids[all_3d_point_names[i][j]] = centroid # dictionary of Point3D ' s
+                centroid = Point3D((centroid_x, centroid_y, centroid_z),size =0.4,color=Color.BLACK)
+                self.dual_centroids[all_3d_point_names[i][j]] = centroid # dictionary of Point3D ' s
+                self.dual_graph_dict[key] = []
                 self.addShape(centroid,key)  # Visualize centroid points
 
         print("endo of loop")
         for i in range(len(all_3d_points)):    
             for j, point3d in enumerate(all_3d_points[i]):
+                key = all_3d_point_names[i][j]
+
                 # key = str(random())
                 A = point3d[0]
                 B = point3d[1]
                 C = point3d[2]
                 
                 for edge in [(A, B), (B, C), (C, A)]:
-                    adj_key, adj_xy = findAdjacentTriangle3D(all_3d_points, all_3d_point_names, edge[0], edge[1], all_3d_point_names[i][j])
-                    if adj_key and (adj_key in centroids):
-                        if ((adj_key),all_3d_point_names[i][j]) not in lines: 
-                            
-                            line = Line3D(centroids[all_3d_point_names[i][j]], centroids[adj_key] ,width =0.5,color=Color.BLACK)
-                            lines.append(((adj_key),all_3d_point_names[i][j]))
-                            self.addShape(line) 
+                    adj_key_raw, adj_xy = findAdjacentTriangle3D(all_3d_points, all_3d_point_names, edge[0], edge[1], all_3d_point_names[i][j])
+                    adj_key = str(adj_key_raw)
+                    if adj_key_raw  and (adj_key in self.dual_centroids):
+                        pair = tuple(sorted([ all_3d_point_names[i][j], adj_key]))
+                        if pair not in lines: 
+                            c1 = self.dual_centroids[all_3d_point_names[i][j]]
+                            c2 = self.dual_centroids[adj_key]
+                            dist = ((c1.x - c2.x) ** 2 + (c1.y - c2.y) ** 2 + (c1.z - c2.z) ** 2) ** 0.5
 
+                            line = Line3D(c1,c2  ,width =0.5,color=Color.BLACK)
+                            self.addShape(line) 
+                            lines.add(pair)
+                            # lines.append(((adj_key),all_3d_point_names[i][j]))
+                            self.dual_graph_dict[key].append((adj_key, dist))
+                            self.dual_graph_dict[adj_key].append((all_3d_point_names[i][j], dist))
+
+
+        return list(self.dual_graph_dict.keys())  # for picking random start/goal
+    
+    def path_finding_with_slope_limit(self, start_key, goal_key, slope_threshold=0.60):
+        restricted_graph = {}
+        i=0
+        for key, neighbors in self.dual_graph_dict.items():
+            restricted_graph[key] = []
+            for neighbor_key, distance in neighbors:
+
+                # Get Point3D centroids
+                c1 = self.dual_centroids[key]
+                c2 = self.dual_centroids[neighbor_key]
+
+                dz = abs(c1.z - c2.z)
+                dx = c1.x - c2.x
+                dy = c1.y - c2.y
+                horizontal_dist = (dx**2 + dy**2) ** 0.5
+                print(horizontal_dist)
+                print(dz)
+                print("- * -")
+                if horizontal_dist == 0:  # Avoid division by zero
+                    continue
+
+                slope = dz / horizontal_dist
+
+                if slope <= slope_threshold:
+                    restricted_graph[key].append((neighbor_key, distance))
+                    # self.addShape(Point3D((p.x, p.y, p.z), size=0.7, color=Color.GREEN))
+
+                else:
+                    # Optionally print rejected edge
+                    # print(f"Skipped edge {key} -> {neighbor_key} due to slope {slope:.2f}")
+                    pass
+
+        # Now run dijkstra on restricted graph
+        path, total_cost = dijkstra(restricted_graph, start_key, goal_key)
+
+        # Visualize path if desired
+        if path:
+           
+
+            for i in range(len(path)-1):
+                a = self.dual_centroids[path[i]]
+                b = self.dual_centroids[path[i+1]]
+                line = Line3D(a, b, width=1.2, color=Color.BLUE)
+                self.addShape(line)
+        else:
+            print(" No valid path found with slope restriction.")
+
+        return path, total_cost
+
+    def path_finding(self, start_key, goal_key):
+        if not hasattr(self, 'dual_graph_dict') or not hasattr(self, 'dual_centroids'):
+            print("Dual graph not built yet. Call dual_graph() first.")
+            return
+
+        path, total_cost = dijkstra(self.dual_graph_dict, start_key, goal_key)
+        print(f"Shortest path cost: {total_cost:.3f}, path: {path}")
+
+        goal_point = self.dual_centroids[goal_key]
+        self.addShape(Point3D((goal_point.x, goal_point.y, goal_point.z), size=0.8, color=Color.RED))
+        for key in path:
+            p = self.dual_centroids[key]
+            self.addShape(Point3D((p.x, p.y, p.z), size=0.7, color=Color.GREEN))
+
+        for i in range(len(path) - 1):
+            p1 = self.dual_centroids[path[i]]
+            p2 = self.dual_centroids[path[i+1]]
+            self.addShape(Line3D(p1, p2, width=1.2, color=Color.GREEN))
 
     def showViolations(self,tri:Triangle2D):
         c = tri.getCircumCircle()
