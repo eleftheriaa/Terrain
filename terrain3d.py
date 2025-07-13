@@ -7,7 +7,7 @@ from contour_map_function import generate_contour_function, generate_contour_ima
 import matplotlib.pyplot as plt
 from skimage.morphology import skeletonize
 import random
-from helper_functions import findViolations, if_not_delaunny,findAdjacentTriangle,findAdjacentTriangle3D
+from helper_functions import findViolations, if_not_delaunny,findAdjacentTriangle,findAdjacentTriangle3D, find_closest_vertex
 from delaunay import delaunay_bowyer_watson, circumcircle_contains,triangle_angles, circumcenter,barycenter ,triangle_area, Point
 from path_finding_algorithms import dijkstra
 import math
@@ -25,9 +25,20 @@ MAX_AREA = 0.08  # adjust as needed
 class Terrain_3D(Scene3D):
     
     def __init__(self, terrain2d ):
-        super().__init__(WIDTH, HEIGHT, "Terrain 3D", n_sliders=1)
+        self.terrain2d = terrain2d
+        self.num_contours = len(self.terrain2d.pointlist2d)  # Number of contours in 2D
+        self.global_scale = 0.1
+        self.flag = 0
+        self.d_flag = 1
+        super().__init__(WIDTH, HEIGHT, "Terrain 3D", n_sliders=self.num_contours + 1)
+        
+        self.contour_heights = [H_STEP * (i+1) for i in range(self.num_contours)]
+        # Initialize sliders
+        for i in range(self.num_contours):
+            self.set_slider_value(i, self.contour_heights[i])
+        self.set_slider_value(self.num_contours, self.global_scale)  # Scale slider: default to 10x
 
-        self.set_slider_value(0, H_STEP) # uncomment for Scene3D
+        # self.set_slider_value(0, H_STEP) # uncomment for Scene3D
         self.terrain2d = terrain2d
         self.pointlist2d = self.terrain2d.pointlist2d
         self.per_contour_triangles = self.terrain2d.per_contour_triangles
@@ -42,15 +53,19 @@ class Terrain_3D(Scene3D):
         self.point3d_dict = []
         self.printHelp()
 
-# uncomment for Scene3D
     def on_slider_change(self, slider_id, value):
-        if slider_id == 0:
+        if 0 <= slider_id < self.num_contours:
             self.point_speed = value * 0.01
-            print("value:", value)
-            self.h_step = value
-            self.flag = 2
+            self.contour_heights[slider_id] = value
+            print(f"Updated height of contour {slider_id} to {value}")
+            self.flag = 2  # Trigger refresh on next key press
+        elif slider_id == self.num_contours:
+            self.global_scale = value   # Example: slider 10 -> scale 1.0
+            print(f"[DEBUG] Updated global height scale to {self.global_scale}")
+            self.flag = 3  # Flag for global scaling
         else: 
             self.flag =1
+
 
     def printHelp(self):
         self.print(f"\
@@ -58,9 +73,11 @@ class Terrain_3D(Scene3D):
 4: Dual Graph\n\
 5: Min distance between random points (dual graph)\n\
 6: like 5 + slope < 10%\n")
+        
+    
 
     def on_key_press(self, symbol, modifiers):
-        if symbol == Key._3 and self.flag == 2:
+        if symbol == Key._3 and (self.flag == 2 or self.flag == 3):
             for i in range(len(self.point3d_dict)):
                 self.removeShape(self.point3d_dict[i])
             for i in range(len(self.l1_names)):
@@ -71,14 +88,15 @@ class Terrain_3D(Scene3D):
             elif(self.d_flag ==2): self.pointlist2d = self.terrain2d.task1(40)
 
 
-            self.lift_mesh(self.h_step)
+            self.lift_mesh()
+            self.flag = 0  # Reset flag
         
         if symbol == Key._4 :
             if(self.d_flag==1):self.pointlist2d = self.terrain2d.task1(N)
             elif(self.d_flag==2):self.pointlist2d = self.terrain2d.task1(40)
 
-            print("type",type(self.h_step))
-            self.triangle_keys = self.dual_graph(self.h_step)     
+            # print("type",type(self.h_step))
+            self.triangle_keys = self.dual_graph()     
 
         if symbol == Key._5:
             self.start = random.choice(self.triangle_keys)
@@ -90,31 +108,28 @@ class Terrain_3D(Scene3D):
             self.path_finding_with_slope_limit(self.start, self.goal)
             
     
-    def lift_mesh(self, h_step):
+    def lift_mesh(self):
         self.point3d_dict =[]
         if(self.d_flag == 1):
-            self.terrain2d.delaunay()
+            self.terrain2d.delaunay(Color.DARKGREEN)
             self.terrain2d.peak(self.pointlist2d[0])
 
         elif(self.d_flag ==2 ): 
             self.terrain2d.peak(self.pointlist2d[0])
-            # self.terrain2d.task2(N=40)
-            # for i in range(len(self.pointlist2d) - 1):
-            #     A = self.pointlist2d[i]     # inner
-            #     B = self.pointlist2d[i + 1] # outer
-            #     self.terrain2d.triangulate_between(A, B)
+           
             
-        print(self.pointlist2d)
-        print("\n*****\nedw einai ta kala trigwnakia\n",self.per_contour_triangles)
+
         for i, contour in enumerate(self.pointlist2d):  # Skip last if it's a duplicate
                 print(contour)
         # STEP 1: Build 2D → 3D point mapping
         point2d_to_3d = dict()
         colors =[]
-        for i, contour in enumerate(self.pointlist2d):  # Skip last if it's a duplicate
-            print(i)
-            z = (i + 1) * h_step
-            colors.append(COLORS[i])
+        for i, contour in enumerate(self.pointlist2d):
+            if(self.flag == 2):
+                z = self.contour_heights[i] if i < len(self.contour_heights) else 0
+            elif(self.flag == 3):
+                z = (i + 1) * self.global_scale
+            colors.append(COLORS[i% len(COLORS)])
             if(i!=len(self.pointlist2d)-1 or self.d_flag == 2 ):
                 if isinstance(contour, PointSet2D):
                     for pt in contour:
@@ -122,20 +137,20 @@ class Terrain_3D(Scene3D):
                         self.point3d_dict.append(key_point)
                         key = (pt.x, pt.y)
                         point2d_to_3d[key] = (pt.x, pt.y, z)
-                        p3d = Point3D((pt.x, pt.y, z),size =0.5, color = COLORS[i])
+                        p3d = Point3D((pt.x, pt.y, z),size =0.5, color = COLORS[i% len(COLORS)])
                         self.addShape(p3d,key_point)
                 else:
                     key_point = str(random.random())
                     self.point3d_dict.append(key_point)
                     point2d_to_3d[(contour.x, contour.y)] = (contour.x, contour.y, 0)
-                    p3d = Point3D((contour.x, contour.y, 0),size =0.5, color = COLORS[i])
+                    p3d = Point3D((contour.x, contour.y, 0),size =0.5, color =COLORS[i% len(COLORS)])
                     self.addShape(p3d, key_point)
                     
             else: 
                 key_point = str(random.random())
                 self.point3d_dict.append(key_point)
                 point2d_to_3d[(contour.x, contour.y)] = (contour.x, contour.y, 0)
-                p3d = Point3D((contour.x, contour.y, 0),size =0.5, color = COLORS[i])
+                p3d = Point3D((contour.x, contour.y, 0),size =0.5, color = COLORS[i% len(COLORS)])
                 self.addShape(p3d, key_point)
         # print("len of poilist2d", i)
         # for key in point2d_to_3d:
@@ -145,7 +160,7 @@ class Terrain_3D(Scene3D):
         # STEP 2: Loop through triangulation
         for contour_index, (triangles) in enumerate(self.per_contour_triangles.values()):
             print("contour_index:",contour_index)
-            color = COLORS[contour_index]
+            color = COLORS[contour_index% len(COLORS)]
             print(color)
             contour_3d_name =[]
             contour_3d=[]
@@ -190,8 +205,8 @@ class Terrain_3D(Scene3D):
 
         return all_3d_contours, all_3d_point_names
 
-    def dual_graph(self, h_step):
-        self.all_3d_points, self.all_3d_point_names = self.lift_mesh(h_step)
+    def dual_graph(self):
+        self.all_3d_points, self.all_3d_point_names = self.lift_mesh()
 
         self.dual_centroids = {}   # triangle name -> Point3D
         self.dual_graph_dict = {}       # triangle name -> list of (neighbor, distance)
@@ -309,55 +324,55 @@ class Terrain_3D(Scene3D):
 
     def path_finding_with_slope_limit(self, start_key, goal_key, slope_threshold=0.60):
 
-        self.scale_mesh_xy_for_slope()
+        # self.scale_mesh_xy_for_slope()
         # self.dual_graph(self.h_step)
         # self.path_finding(start_key, goal_key)
-        # restricted_graph = {}
-        # i=0
-        # for key, neighbors in self.dual_graph_dict.items():
-        #     restricted_graph[key] = []
-        #     for neighbor_key, distance in neighbors:
+        restricted_graph = {}
+        i=0
+        for key, neighbors in self.dual_graph_dict.items():
+            restricted_graph[key] = []
+            for neighbor_key, distance in neighbors:
 
-        #         # Get Point3D centroids
-        #         c1 = self.dual_centroids[key]
-        #         c2 = self.dual_centroids[neighbor_key]
+                # Get Point3D centroids
+                c1 = self.dual_centroids[key]
+                c2 = self.dual_centroids[neighbor_key]
 
-        #         dz = abs(c1.z - c2.z)
-        #         dx = c1.x - c2.x
-        #         dy = c1.y - c2.y
-        #         horizontal_dist = (dx**2 + dy**2) ** 0.5
-        #         # print(horizontal_dist)
-        #         # print(dz)
-        #         # print("- * -")
-        #         if horizontal_dist == 0:  # Avoid division by zero
-        #             continue
+                dz = abs(c1.z - c2.z)
+                dx = c1.x - c2.x
+                dy = c1.y - c2.y
+                horizontal_dist = (dx**2 + dy**2) ** 0.5
+                # print(horizontal_dist)
+                # print(dz)
+                # print("- * -")
+                if horizontal_dist == 0:  # Avoid division by zero
+                    continue
 
-        #         slope = dz / horizontal_dist
-        #         print("slope value:", slope)
+                slope = dz / horizontal_dist
+                print("slope value:", slope)
 
-        #         if slope <= slope_threshold:
-        #             restricted_graph[key].append((neighbor_key, distance))
-        #             # self.addShape(Point3D((p.x, p.y, p.z), size=0.7, color=Color.GREEN))
+                if slope <= slope_threshold:
+                    restricted_graph[key].append((neighbor_key, distance))
+                    # self.addShape(Point3D((p.x, p.y, p.z), size=0.7, color=Color.GREEN))
 
-        #         else:
-        #             # Optionally print rejected edge
-        #             # print(f"Skipped edge {key} -> {neighbor_key} due to slope {slope:.2f}")
-        #             pass
+                else:
+                    # Optionally print rejected edge
+                    # print(f"Skipped edge {key} -> {neighbor_key} due to slope {slope:.2f}")
+                    pass
 
-        # # Now run dijkstra on restricted graph
-        # path, total_cost = dijkstra(restricted_graph, start_key, goal_key)
+        # Now run dijkstra on restricted graph
+        path, total_cost = dijkstra(restricted_graph, start_key, goal_key)
 
-        # # Visualize path if desired
-        # if path:
-        #     for i in range(len(path)-1):
-        #         a = self.dual_centroids[path[i]]
-        #         b = self.dual_centroids[path[i+1]]
-        #         line = Line3D(a, b, width=1.2, color=Color.GRAY)
-        #         self.addShape(line)
-        # else:
-        #     print(" No valid path found with slope restriction.")
+        # Visualize path if desired
+        if path:
+            for i in range(len(path)-1):
+                a = self.dual_centroids[path[i]]
+                b = self.dual_centroids[path[i+1]]
+                line = Line3D(a, b, width=1.2, color=Color.BLUE)
+                self.addShape(line)
+        else:
+            print(" No valid path found with slope restriction.")
 
-        # return path, total_cost
+        return path, total_cost
 
     def path_finding(self, start_key, goal_key):
         if not hasattr(self, 'dual_graph_dict') or not hasattr(self, 'dual_centroids'):

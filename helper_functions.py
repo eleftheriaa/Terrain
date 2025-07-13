@@ -6,7 +6,7 @@ from vvrpywork.shapes import (
 )
 
 from random import random
-
+import numpy as np
 
 def findAdjacentTriangle3D(pointset: PointSet3D, names:list , p1:Point3D, p2:Point3D, exclude_key: str = None) -> tuple[str,Point2D]:
     tri_adj_key = ""
@@ -135,3 +135,13 @@ def if_not_delaunny(triangle, all_triangles) -> list[str, Triangle2D, str, Trian
         name2 = str(random())
 
     return name1, new_tri1, name2, new_tri2  # Return first valid flip
+
+
+def find_closest_vertex( vertices, query: tuple) -> int:
+
+    difference = (vertices - query)
+    dist = (difference * difference).sum(axis=1)
+
+    closest_vertex_index = np.argmin(dist)
+
+    return closest_vertex_index

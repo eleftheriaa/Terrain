@@ -7,7 +7,7 @@ from contour_map_function import generate_contour_function, generate_contour_ima
 import matplotlib.pyplot as plt
 from skimage.morphology import skeletonize
 import random
-from helper_functions import findViolations, if_not_delaunny,findAdjacentTriangle,findAdjacentTriangle3D
+from helper_functions import findViolations, if_not_delaunny,findAdjacentTriangle,findAdjacentTriangle3D, find_closest_vertex
 from delaunay import delaunay_bowyer_watson, circumcircle_contains,triangle_angles, circumcenter,barycenter ,triangle_area, Point
 from path_finding_algorithms import dijkstra
 import math
@@ -18,8 +18,8 @@ HEIGHT = 950
 # Color.MAGENTA,  Color.ORANGE,  Color.DARKGREEN, Color.BLACK, 
 COLORS =[ Color.DARKRED, Color.RED,Color.ORANGE, Color.YELLOW, Color.GREEN, Color.DARKGREEN, Color.BLUE,Color.CYAN, Color.GRAY , Color.WHITE]
 H_STEP = 0.1
-MIN_ANGLE = 5 # degrees
-MAX_AREA = 0.1  # adjust as needed
+MIN_ANGLE = 8.5 # degrees
+MAX_AREA = 0.09  # adjust as needed
 class Terrain(Scene2D):
     
     def __init__(self):
@@ -47,21 +47,21 @@ class Terrain(Scene2D):
         self.l2_names = []
         self.l3_names = []
         self.point3d_dict = []
-
+        self.bad_keys=[]
 # uncomment for Scene2D
 
-        self.addShape(Label2D(Point2D((-0.7, 1)), text=" '1' : contour lines", size=12, bold=True), "label_1")
+        self.addShape(Label2D(Point2D((-0.5, 1)), text=" '1' : contour lines", size=12, bold=True), "label_1")
 
-        self.addShape(Label2D(Point2D((-0.7, 0.95)), text=" 'C' : (costum) NON Delaunay triangulation ", size=12, bold=True), "label_2")
-        self.addShape(Label2D(Point2D((-0.7, 0.91)), text=" '2' : flip edges ", size=12, bold=True), "label_3")
+        self.addShape(Label2D(Point2D((-0.5, 0.95)), text=" 'C' : (costum) NON Delaunay triangulation then  '2' : flip edges ", size=12, bold=True), "label_2")
+        # self.addShape(Label2D(Point2D((-0.7, 0.91)), text=" '2' : flip edges ", size=12, bold=True), "label_3")
 
-        self.addShape(Label2D(Point2D((-0.7, 0.86)), text=" 'D' : Delaunay triangulation ", size=12, bold=True), "label_4")
-        self.addShape(Label2D(Point2D((-0.7, 0.82)), text= " '3' : Delaunay correction based on limitations", size=12, bold=True), "label_5")
+        self.addShape(Label2D(Point2D((-0.5, 0.91)), text=" 'D' : Delaunay triangulation then '3' to correct the limitations", size=12, bold=True), "label_4")
+        # self.addShape(Label2D(Point2D((-0.7, 0.82)), text= " '3' : Delaunay correction based on limitations", size=12, bold=True), "label_5")
 
-        self.addShape(Label2D(Point2D((-0.7, 0.77)), text= " 'R' : reset", size=12, bold=True), "label_6")
-        self.addShape(Label2D(Point2D((-0.7, 0.73)), text= " 'T' : 3D Scene", size=12, bold=True), "label_7")
+        self.addShape(Label2D(Point2D((-0.5, 0.86)), text= " 'R' : reset", size=12, bold=True), "label_6")
+        self.addShape(Label2D(Point2D((-0.5, 0.82)), text= " 'T' : 3D Scene", size=12, bold=True), "label_7")
 
-
+    
     
     def on_key_press(self, symbol, modifiers):
         if symbol == Key._1:
@@ -76,27 +76,33 @@ class Terrain(Scene2D):
             
         if symbol == Key._2:
             self.check_delaunay_status()
-            # self.task2a()
+            self.task2a()
 
         if symbol == Key.D:
             # self.plot_triangles()
             # self.delaunay()
             self.pointlist2d = self.task1(N=15)  # list of contours with .points
-            self.plot_delaunay2()
+            self.plot_delaunay2(Color.DARKGREEN)
         if symbol == Key._3:
+            
             self.del_correction()
         
 
         
         if symbol == Key.T:
             from terrain3d import Terrain_3D
+            # from terrain_skimage import Terrain_3D
+
             terrain3d = Terrain_3D(self)
             terrain3d.mainLoop()
         if symbol == Key.R :
             self.violations = 0
             self.removeShape("contour_lineset")
             
-
+            for keys, new_triangle in self.new_triangles.items():
+                # print("new triangle ", new_triangle)
+                
+                self.removeShape(keys)
             for k in self.names:
                 self.removeShape(k)
             self.names = []
@@ -104,20 +110,24 @@ class Terrain(Scene2D):
                 self.removeShape(key)
             self.triangles = {}
             for key,value in self.filled_tris.items():
-                value.filled=False
                 self.removeShape(key)
+            self.filled_tris = {}
+
             for  contour in (self.per_contour_triangles):
                 for name in self.per_contour_triangles[contour].keys():
                     self.removeShape(name)
-            self.filled_tris = {}
-            for contour_idx, bad_tris in self.do_not_meet_criteria_with_contour.items():
-                for i, bt in enumerate(bad_tris):
-                    self.removeShape( f"bad_tr{contour_idx}_{i}")
-                    self.removeShape(f"p1{contour_idx}_{i}")
-                    self.removeShape( f"p2{contour_idx}_{i}")
-                    self.removeShape( f"p3{contour_idx}_{i}")
-                    
+            for i in range(0, len(self.bad_keys), 4):  # Step by 4 each time
+                btri_key = self.bad_keys[i]      # Bad triangle key
+                p1_key = self.bad_keys[i + 1]    # Point 1 key
+                p2_key = self.bad_keys[i + 2]    # Point 2 key
+                p3_key = self.bad_keys[i + 3]    # Point 3 key
+                # print(f"Triangle: {btri_key}, Points: {p1_key}, {p2_key}, {p3_key}")
+                self.removeShape(btri_key)
+                self.removeShape(p1_key)
+                self.removeShape(p2_key)
+                self.removeShape(p3_key)
 
+                    
             self.triangles:dict[str, Triangle2D] = {}
             self.per_contour_triangles = {}
             self.lineset = LineSet2D(width=0.5,color=Color.RED)
@@ -177,6 +187,8 @@ class Terrain(Scene2D):
         # img = cv2.imread("contour_maps/bandw.png")
         # img = cv2.imread("contour_maps/to_draw.png")
         # img = cv2.imread("contour_maps/four_contour.png")
+        # img = cv2.imread("contour_maps/3_contour.png")
+
         img = cv2.imread("contour_maps/five_contours.png")
         # img = cv2.imread("contour_maps/two_slopes.png")
 
@@ -229,11 +241,12 @@ class Terrain(Scene2D):
                     self.lineset.add(Line2D(pn,pn_minus1,width = 2,color=Color.BLACK))
                 nx_minus1, ny_minus1 = nx, ny
             self.names.append(f"contour_{i}")
-
+            print("number of points in all contour",len(self.pointset)   )
             # self.addShape(lineset)
             # self.addShape(pointset, self.names[i])
             pointlist2d.append(self.pointset)
-        # print("number of points in all contour",pointlist2d)   
+        
+        print("number of points in all contour",len(self.pointset)   )
         self.pointlist2d =pointlist2d
         return pointlist2d
     
@@ -349,30 +362,67 @@ class Terrain(Scene2D):
             self.addShape(new_triangle,keys)
             new_triangle.width =0.5
             self.updateShape(keys)
-        print("end of loop")
+    def polygon_area(self, points):
+        # Shoelace formula
+        n = len(points)
+        if n < 3:
+            return 0
+        area = 0
+        for i in range(n):
+            x1, y1 = points[i]
+            x2, y2 = points[(i + 1) % n]
+            area += (x1 * y2) - (x2 * y1)
+        return abs(area) / 2
+    def get_outermost_contour(self):
+        max_area = 0
+        outer_contour = None
+        for contour in self.pointlist2d:
+            if isinstance(contour, PointSet2D):
+                points = [(p[0], p[1]) for p in contour.points]
+                area = self.polygon_area(points)
+                if area > max_area:
+                    max_area = area
+                    outer_contour = points
+        return outer_contour
+    def get_innermost_contour(self):
+        min_area =  float('inf')
+        inner_contour = None
+        for contour in self.pointlist2d:
+            if isinstance(contour, PointSet2D) and len(contour.points) > 1:
+                points = [(p[0], p[1]) for p in contour.points]
+                area = self.polygon_area(points)
+                if area < min_area:
+                    min_area = area
+                    inner_contour = points
+            else:continue
+        return inner_contour
 
 
-
-    def delaunay(self):
+    def delaunay(self, coloraki):
         self.d_flag = 1
         all_points = []             # all 2D points (for triangulation)
         point_to_contour = {}       # maps point tuple -> contour index
         contour_ids = []
         outer_contour = []
         # print(self.pointlist2d)
-        for outer_points in self.pointlist2d[-1].points:
-            outer_contour.append(tuple(outer_points))
-            # print(outer_contour)
+       
+        # print("[DEBUG] self.pointlist2d", self.pointlist2d)
+        # print("[DEBUG] type of last element", type(self.pointlist2d[-1]))
+
+        outer_contour = self.get_outermost_contour()
+        inner_contour = self.get_innermost_contour()
+        print("[INNER]",inner_contour)
 
         # Step 1: Collect all points and remember ownership
         for contour_idx, contour in enumerate(self.pointlist2d):
             contour_id = f"contour{contour_idx + 1}"
             contour_ids.append(contour_id)
 
-            for pt in contour.points:
-                pt_tuple = (pt[0], pt[1])
-                all_points.append(pt_tuple)
-                point_to_contour[pt_tuple] = contour_id
+            if isinstance(contour, PointSet2D):
+                for pt in contour.points:
+                    pt_tuple = (pt[0], pt[1])
+                    all_points.append(pt_tuple)
+                    point_to_contour[pt_tuple] = contour_id
 
         print(f"Total input points: {len(all_points)}")
         self.all_points = all_points
@@ -380,7 +430,7 @@ class Terrain(Scene2D):
         # delaunay_tris = delaunay_bowyer_watson(all_points)  # each tri: [(x1,y1), (x2,y2), (x3,y3)]
         delaunay_tris = delaunay_bowyer_watson(all_points)  # each tri: [(x1,y1), (x2,y2), (x3,y3)]
 
-        
+        # print("delauany tris", delaunay_tris)
         # Step 3: Prepare output dict
         self.per_contour_triangles = {cid: {} for cid in contour_ids}
 
@@ -396,7 +446,10 @@ class Terrain(Scene2D):
 
             # Check if inside outer contour
             if not self.point_in_polygon((cx, cy), outer_contour):
+                
+                # print("[DEBUG] Triangles skipped'")
                 continue  # Skip triangle outside outer contour
+
             else:
 
                 contour_set = {point_to_contour.get(p, "unknown") for p in [p1t, p2t, p3t]}
@@ -409,8 +462,8 @@ class Terrain(Scene2D):
                     contour_id = next((cid for cid in contour_set if cid != "contour1"), "contour1")
                     
                 # Create triangle shape
-                tri = Triangle2D(p1t, p2t, p3t, width=0.3, color=Color.DARKGREEN)
-                name = f"{contour_id}_tri_{i}"
+                tri = Triangle2D(p1t, p2t, p3t, width=0.3, color=coloraki)
+                name = str(random.random())
 
                 # Store triangle
                 
@@ -418,6 +471,8 @@ class Terrain(Scene2D):
                 # Step 5: Skip rendering if triangle is fully inside contour1
                 if contour_id != "contour1":
                     self.per_contour_triangles[contour_id][name] = tri
+                    # print(f"[DEBUG] Added triangle with name '{name}' to contour '{contour_id}'")
+
                     # self.addShape(tri, name)
 
 
@@ -455,7 +510,6 @@ class Terrain(Scene2D):
         print("size of contours:",len(self.curve_points))  
 
         for i in range(len(self.curve_points)-1):
-            print(i)
             if (i==0):
                 self.peak(self.curve_points[i])
             self.triangulate_between(self.curve_points[i],self.curve_points[i+1])
@@ -470,7 +524,6 @@ class Terrain(Scene2D):
             for name,tri in self.per_contour_triangles[contour].items():
                 self.addShape(tri, name)
         for i in range(len(self.curve_points)-1):
-            print(i)
             self.addShape(self.curve_points[i], self.names[i])
 
 
@@ -479,9 +532,27 @@ class Terrain(Scene2D):
         self.flip_edges()
 
     
-    def plot_delaunay2(self):
-        self.delaunay()
-        self.peak(self.pointlist2d[0])
+    def plot_delaunay2(self, coloraki):
+        for i in range(0, len(self.bad_keys), 4):  # Step by 4 each time
+            btri_key = self.bad_keys[i]      # Bad triangle key
+            p1_key = self.bad_keys[i + 1]    # Point 1 key
+            p2_key = self.bad_keys[i + 2]    # Point 2 key
+            p3_key = self.bad_keys[i + 3]    # Point 3 key
+            # print(f"Triangle: {btri_key}, Points: {p1_key}, {p2_key}, {p3_key}")
+            self.removeShape(btri_key)
+            self.removeShape(p1_key)
+            self.removeShape(p2_key)
+            self.removeShape(p3_key)
+        
+
+        self.delaunay(coloraki)
+        
+        inner_pointset2d = PointSet2D(self.get_innermost_contour())
+
+        print("self.get_innermost_contour()", inner_pointset2d)
+        print("self.pointlist2d[0]",self.pointlist2d[0])
+
+        self.peak(inner_pointset2d)
 
         self.new_points = []  # Flat list of (x, y)
         self.new_points_clustered = []  # List of PointSet2D
@@ -516,13 +587,27 @@ class Terrain(Scene2D):
         print(max_contours)
         self.new_points_clustered = [PointSet2D() for _ in range(max_contours)]
 
+        self.bad_keys = []
         for contour_idx, bad_tris in self.do_not_meet_criteria_with_contour.items():
             for i, bad_tri in enumerate(bad_tris):
+                btri_key = str(random.random())
+                p1_key = str(random.random())
+                p2_key = str(random.random())
+                p3_key = str(random.random())
+
+
+                self.bad_keys.append(btri_key)
+                self.bad_keys.append(p1_key)
+                self.bad_keys.append(p2_key)
+                self.bad_keys.append(p3_key)
+
+
                 r1, r2, r3 = bad_tri
                 center = barycenter(r1, r2, r3)
 
                 # Add to flat list
                 self.new_points.append((center.x, center.y))
+                # self.addShape(Point2D((center.x, center.y), color = Color.BLACK))
 
                 # Add to corresponding contour cluster
                 self.new_points_clustered[contour_idx].add(Point2D((center.x, center.y)))
@@ -533,41 +618,35 @@ class Terrain(Scene2D):
                 p3 = Point2D((r3.x, r3.y), color=Color.MAGENTA)
                 bt = Triangle2D(p1, p2, p3, filled=True, color=Color.MAGENTA)
 
-                self.addShape(bt, f"bad_tr{contour_idx}_{i}")
-                self.addShape(p1, f"p1{contour_idx}_{i}")
-                self.addShape(p2, f"p2{contour_idx}_{i}")
-                self.addShape(p3, f"p3{contour_idx}_{i}")
-        print("clustered",self.new_points_clustered)
+                self.addShape(bt, btri_key)
+                self.addShape(p1, p1_key)
+                self.addShape(p2, p2_key)
+                self.addShape(p3,p3_key)
         print("End of loop")
 
-            
+
     def del_correction(self):
-        self.new_points+=self.all_points
-        print(self.pointlist2d)
-        print("---- * ----")
-        print(self.new_points_clustered)
-        self.pointlist2d = self.new_points_clustered
         for contour_idx, contour in enumerate(self.per_contour_triangles):
             for name, tri in self.per_contour_triangles[contour].items():
                 self.removeShape(name)
-        # self.plot_delaunay2()
-        new_del_tris = delaunay_bowyer_watson(self.new_points)
-        outer_contour = []
-        for outer_points in self.new_points_clustered[-1].points:
-            outer_contour.append(tuple(outer_points))
-            # print(outer_contour)
+        self.per_contour_triangles ={}
+        self.new_points += self.all_points
+        for i, cluster in enumerate(self.new_points_clustered):
+            if not isinstance(cluster, PointSet2D):
+                # wrap single points into PointSet2D
+                ps = PointSet2D()
+                ps.add(cluster)
+                self.new_points_clustered[i] = ps
+        self.pointlist2d += self.new_points_clustered
+        print("len pointlist 2d:", len(self.pointlist2d))
+        # replot
+        self.per_contour_triangles = {}
 
-        for i, (p1, p2, p3) in enumerate(new_del_tris):
-            p1t = Point2D((p1.x, p1.y))
-            p2t = Point2D((p2.x, p2.y))
-            p3t = Point2D((p3.x, p3.y))
+        self.plot_delaunay2(Color.RED)
 
-            cx = (p1t.x + p2t.x + p3t.x) / 3
-            cy = (p1t.y + p2t.y + p3t.y) / 3
-            if not self.point_in_polygon((cx, cy), outer_contour):
-                continue 
-            self.addShape(Triangle2D(p1t,p2t,p3t, width = 0.5), f"redelauany{i}")
-            print("correct tri")
+        print("DEBUG: Finished delaunay inside del_correction")
+
+
 
 
 
