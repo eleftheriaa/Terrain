@@ -120,14 +120,15 @@ class Terrain_3D(Scene3D):
             
 
         for i, contour in enumerate(self.pointlist2d):  # Skip last if it's a duplicate
-                print(contour)
+            print(contour)
         # STEP 1: Build 2D → 3D point mapping
         point2d_to_3d = dict()
         colors =[]
         for i, contour in enumerate(self.pointlist2d):
             if(self.flag == 2):
                 z = self.contour_heights[i] if i < len(self.contour_heights) else 0
-            elif(self.flag == 3):
+            # elif(self.flag == 3):
+            else:
                 z = (i + 1) * self.global_scale
             colors.append(COLORS[i% len(COLORS)])
             if(i!=len(self.pointlist2d)-1 or self.d_flag == 2 ):
