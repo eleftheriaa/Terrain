@@ -1,30 +1,37 @@
-## Ερωτήματα
+### Input
 
-### Είσοδος:
-Εικόνα χάρτη με κλειστές καμπύλες.
-
----
-
-### Μέρος Α:
-
-**i)** Ανίχνευση των καμπύλων της εικόνας και πολυγωνική αναπαράστασή τους.  
-**ii)** Τριγωνοποίηση του χάρτη στις δύο διαστάσεις και παρουσίαση του αποτελέσματος ως **terrain** στις τρεις διαστάσεις.  
-&nbsp;&nbsp;&nbsp;&nbsp; Επαναλάβετε χρησιμοποιώντας τριγωνοποίηση **Delaunay**.  
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;**a.** Η ελάχιστη γωνία στις 3Δ να είναι > α μοιρών.  
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;**b.** Το εμβαδόν κάθε τριγώνου να είναι < δ.
+Map image containing closed curves (contours).
 
 ---
 
-### Μέρος Β:
+## Part A
 
-**iii)** Δυνατότητα στο χρήστη να ορίζει:  
-&nbsp;&nbsp;&nbsp;&nbsp;– Το μέσο ύψος κάθε κλειστής καμπύλης.  
-&nbsp;&nbsp;&nbsp;&nbsp;– Τον τρόπο μεταβολής του ύψους περιοχών της καμπύλης.
+1. **Detection of the image curves and their polygonal representation**
 
-**iv)** Χρωματισμός των terrains με βάση το υψόμετρο.  
-**v)** Υπολογισμός και απεικόνιση του **δυικού γράφου** για κάθε περίπτωση.  
-**vi)** Υπολογισμός και απεικόνιση της **ελάχιστης απόστασης** μεταξύ δύο τυχαίων σημείων στον χάρτη, χρησιμοποιώντας τον δυικό γράφο.  
-**vii)** Επανάληψη του (vi) με τον περιορισμό η μετάβαση να μην έχει κλίση > 10%.
+2. **Triangulation of the map in two dimensions and presentation of the result as a `terrain` in three dimensions**
+
+   Repeat using **Delaunay triangulation**, with the following constraints:
+
+   - a. The minimum angle in 3D must be > α degrees
+   - b. The area of each triangle must be < δ
 
 ---
 
+## Part B
+
+3. **User-defined parameters**
+
+   The user must be able to define:
+
+   - The average height of each closed curve
+   - The method of height variation for regions within the curve
+
+4. **Coloring of the terrains based on altitude**
+
+5. **Calculation and visualization of the `dual graph` for each case**
+
+6. **Calculation and visualization of the minimum distance between two random points on the map using the dual graph**
+
+7. **Repeat step 6 with the constraint that transitions must not have a slope > 10%**
+
+---
