@@ -14,6 +14,7 @@ Map image containing closed curves (contours).
 
    - a. The minimum angle in 3D must be > α degrees
    - b. The area of each triangle must be < δ
+
 <img src="contour_maps/blurred2.png" width="200"> <img src="screens/triangulation/Bowyer_Watson_corrected2.png" width="200">
 
 ---
