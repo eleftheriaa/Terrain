@@ -1,30 +1,37 @@
+### Input
 
-
-### Input:
 Map image containing closed curves (contours).
 
 ---
 
-### Part A:
+## Part A
 
-**i)** Detection of the image curves and their polygonal representation. 
-**ii)** Triangulation of the map in two dimensions and presentation of the result as a **`terrain`** in three dimensions.
-&nbsp;&nbsp;&nbsp;&nbsp; Repeat using **`Delaunay`** triangulation.  
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;**a.** The minimum angle in 3D must be > α degrees.
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;**b.** The area of each triangle must be < δ.
+1. **Detection of the image curves and their polygonal representation**
+
+2. **Triangulation of the map in two dimensions and presentation of the result as a `terrain` in three dimensions**
+
+   Repeat using **Delaunay triangulation**, with the following constraints:
+
+   - a. The minimum angle in 3D must be > α degrees
+   - b. The area of each triangle must be < δ
 
 ---
 
-### Part Β:
+## Part B
 
-**iii)** Ability for the user to define:
-&nbsp;&nbsp;&nbsp;&nbsp;– The average height of each closed curve.
-&nbsp;&nbsp;&nbsp;&nbsp;– The method of height variation for regions within the curve.
+3. **User-defined parameters**
 
-**iv)** Coloring of the terrains based on altitude. 
-**v)** Calculation and visualization of the **`dual graph`** for each case. 
-**vi)** Calculation and visualization of the minimum distance between two random points on the map, using the dual graph.
-**vii)** Repetition of (vi) with the constraint that the transition must not have a slope > 10%.
+   The user must be able to define:
 
+   - The average height of each closed curve
+   - The method of height variation for regions within the curve
+
+4. **Coloring of the terrains based on altitude**
+
+5. **Calculation and visualization of the `dual graph` for each case**
+
+6. **Calculation and visualization of the minimum distance between two random points on the map using the dual graph**
+
+7. **Repeat step 6 with the constraint that transitions must not have a slope > 10%**
 
 ---
