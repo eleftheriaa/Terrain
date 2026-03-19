@@ -1,30 +1,30 @@
-## Ερωτήματα
 
-### Είσοδος:
-Εικόνα χάρτη με κλειστές καμπύλες.
 
----
-
-### Μέρος Α:
-
-**i)** Ανίχνευση των καμπύλων της εικόνας και πολυγωνική αναπαράστασή τους.  
-**ii)** Τριγωνοποίηση του χάρτη στις δύο διαστάσεις και παρουσίαση του αποτελέσματος ως **terrain** στις τρεις διαστάσεις.  
-&nbsp;&nbsp;&nbsp;&nbsp; Επαναλάβετε χρησιμοποιώντας τριγωνοποίηση **Delaunay**.  
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;**a.** Η ελάχιστη γωνία στις 3Δ να είναι > α μοιρών.  
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;**b.** Το εμβαδόν κάθε τριγώνου να είναι < δ.
+### Input:
+Map image containing closed curves (contours).
 
 ---
 
-### Μέρος Β:
+### Part A:
 
-**iii)** Δυνατότητα στο χρήστη να ορίζει:  
-&nbsp;&nbsp;&nbsp;&nbsp;– Το μέσο ύψος κάθε κλειστής καμπύλης.  
-&nbsp;&nbsp;&nbsp;&nbsp;– Τον τρόπο μεταβολής του ύψους περιοχών της καμπύλης.
-
-**iv)** Χρωματισμός των terrains με βάση το υψόμετρο.  
-**v)** Υπολογισμός και απεικόνιση του **δυικού γράφου** για κάθε περίπτωση.  
-**vi)** Υπολογισμός και απεικόνιση της **ελάχιστης απόστασης** μεταξύ δύο τυχαίων σημείων στον χάρτη, χρησιμοποιώντας τον δυικό γράφο.  
-**vii)** Επανάληψη του (vi) με τον περιορισμό η μετάβαση να μην έχει κλίση > 10%.
+**i)** Detection of the image curves and their polygonal representation. 
+**ii)** Triangulation of the map in two dimensions and presentation of the result as a **`terrain`** in three dimensions.
+&nbsp;&nbsp;&nbsp;&nbsp; Repeat using **`Delaunay`** triangulation.  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;**a.** The minimum angle in 3D must be > α degrees.
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;**b.** The area of each triangle must be < δ.
 
 ---
 
+### Part Β:
+
+**iii)** Ability for the user to define:
+&nbsp;&nbsp;&nbsp;&nbsp;– The average height of each closed curve.
+&nbsp;&nbsp;&nbsp;&nbsp;– The method of height variation for regions within the curve.
+
+**iv)** Coloring of the terrains based on altitude. 
+**v)** Calculation and visualization of the **`dual graph`** for each case. 
+**vi)** Calculation and visualization of the minimum distance between two random points on the map, using the dual graph.
+**vii)** Repetition of (vi) with the constraint that the transition must not have a slope > 10%.
+
+
+---
