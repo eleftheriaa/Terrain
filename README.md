@@ -40,7 +40,7 @@ Map image containing closed curves (contours).
 
 <img src="screens/meshes/mesh.png" width="400">
 <img src="screens/dual_graph/Screenshot 2025-07-09 162839.png" width="400">
-<img src="screens/dijkstra/Screenshot 2025-07-10 170941.png" width="400"> 
+<!-- <img src="screens/dijkstra/Screenshot 2025-07-10 170941.png" width="400">  -->
 
 
 ---
