@@ -14,6 +14,8 @@ Map image containing closed curves (contours).
 
    - a. The minimum angle in 3D must be > α degrees
    - b. The area of each triangle must be < δ
+<img src="contour_maps/blurred2.png" width="200">
+<img src="screens/triangulation/Bowyer_Watson_corrected2.png" width="200">
 
 ---
 
@@ -33,5 +35,10 @@ Map image containing closed curves (contours).
 6. **Calculation and visualization of the minimum distance between two random points on the map using the dual graph**
 
 7. **Repeat step 6 with the constraint that transitions must not have a slope > 10%**
+
+
+<img src="screens/meshes/mesh.png" width="200">
+<img src="screens/dual_graph/Screenshot 2025-07-09 162839.png" width="200">
+
 
 ---
