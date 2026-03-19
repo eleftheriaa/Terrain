@@ -170,6 +170,7 @@ class Terrain(Scene2D):
         min_dist = float('inf')
         closest = None
         count = 0
+        
         for a in A:
             dist = np.linalg.norm(np.array((a.x,a.y)) - np.array((point.x,point.y)))
             if dist < min_dist:
